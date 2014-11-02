@@ -74,8 +74,6 @@ from nltk.corpus import stopwords
 
 stop = stopwords.words('english')
 
-
-
 def get_parents(item):
 	parents = []
 	if item['BrowseNodes']['BrowseNode'].__class__ is list:

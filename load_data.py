@@ -1,21 +1,12 @@
 import json
 from collections import defaultdict
 
+####### Load the amazon data
 # load the amazon product data
 json_data = open('data/amazon_products').read()
 
 # They didn't format the JSON properly -- this fixes that
 json_data = json_data.replace('\x01', '').replace('\n', '')
-
-heirarchy = open('data/AmazonHeirarchy.json').read()
-
-labels = json.loads(heirarchy)
-
-root_labels = {}
-
-for lab in labels:
-    root_labels[int(lab['BrowseNodeId'])] = lab['Name']
-
 
 # build a list of tuples where each 
 # product data stream begins and ends
@@ -25,12 +16,24 @@ for pos in re.finditer('}{', json_data):
     ix.append((prev_ix, pos.start() + 1))
     prev_ix = pos.start() + 1
 
+
 # how many items do we want to load? 10 to test.
-n = 100
+n = 10
 
 # load each review as a python dict, store them in a list
 amazon = [json.loads(json_data[idx[0] : idx[1]]) for idx in ix[:n]]
 
+####### Load the hierarchy
+heirarchy = open('data/AmazonHeirarchy.json').read()
+
+labels = json.loads(heirarchy)
+
+root_labels = {}
+
+for lab in labels:
+    root_labels[int(lab['BrowseNodeId'])] = lab['Name']
+
+#######
 
 def get_parents(item):
     parents = []

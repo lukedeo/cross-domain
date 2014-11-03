@@ -1,16 +1,10 @@
+import json
 import networkx as nx
 from sets import Set
 
 heirarchy = open('data/AmazonHeirarchy.json').read()
 
 labels = json.loads(heirarchy)
-
-root_labels = {}
-
-for lab in labels:
-    root_labels[int(lab['BrowseNodeId'])] = lab['Name']
-
-
 
 
 def yield_graph(dictionary):
@@ -40,34 +34,6 @@ def yield_graph(dictionary):
     return nodes, edges, names
 
 
-v, _, _ = yield_graph(labels[0]); print len(Set(v))
-
-
-G = nx.DiGraph()
-
-G.add_node('amazon')
-
-V, E, names = [], [], []
-
-for lab in labels:
-    E += [('amazon', lab['BrowseNodeId'])]
-    v, e, na = yield_graph(lab)
-    V += v
-    E += e
-    names += na
-
-# for nodeid, productname in zip(V, names):
-#   G.add_node(nodeid, name = productname)
-
-G.add_nodes_from(V)
-G.add_edges_from(E)
-
-
-
-
-
-
-
 graphs = {}
 
 for lab in labels:
@@ -85,13 +51,3 @@ for lab in labels:
 
 def get_categories(nodeid, graphs):
     return [category for category, G in graphs.iteritems() if nodeid in G.nodes()]
-
-
-G = nx.Graph()
-
-for g in graphs:
-    G.add_nodes_from(g)
-    G.add_edges_from(g.edges())
-
-
-

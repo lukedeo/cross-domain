@@ -2,8 +2,61 @@ import json
 from collections import defaultdict
 import itertools
 from nltk.corpus import stopwords
+import cPickle as pickle
+import re
+from sklearn.preprocessing import MultiLabelBinarizer
+from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 
-from gensim import corpora, models, similarities
+from nltk import word_tokenize          
+from nltk.stem import WordNetLemmatizer 
+
+import numpy as np
+
+class LemmaTokenizer(object):
+    def __init__(self):
+        self.wnl = WordNetLemmatizer()
+    def __call__(self, doc):
+        return [self.wnl.lemmatize(t) for t in word_tokenize(doc)]
+
+def get_parents(item):
+    parents = []
+    try:
+        if item['BrowseNodes']['BrowseNode'].__class__ is list:
+            for cat in item['BrowseNodes']['BrowseNode']:
+                parent_categ = cat
+                while parent_categ.has_key('Ancestors'):
+                    parent_categ = parent_categ['Ancestors']['BrowseNode']
+                parents.append(parent_categ['BrowseNodeId'])
+        else:
+            cat = item['BrowseNodes']['BrowseNode']
+            parent_categ = cat
+            while parent_categ.has_key('Ancestors'):
+                parent_categ = parent_categ['Ancestors']['BrowseNode']
+            parents.append(parent_categ['BrowseNodeId'])
+    except Exception, e:
+        parents = []
+    return set(parents)
+
+def get_labels(item, graphs):
+    labs = list(get_parents(item))
+    # if item['BrowseNodes']['BrowseNode'].__class__ is list:
+    #     for node in item['BrowseNodes']['BrowseNode']:
+    #         labs.append(int(node['BrowseNodeId']))
+    # else:
+    #     labs.append(int(item['BrowseNodes']['BrowseNode']['BrowseNodeId']))
+    # return labs
+    return list(Set([cat for cat in itertools.chain.from_iterable([get_categories(i, graphs) for i in labs])]))
+
+def grab_reviews(item, graphs, reviewtype = 'PrunedReivews'):
+    return [{'ASIN': item["ASIN"], 
+             'text' : it['Content'], 
+             'labels' : get_labels(item, graphs)} for it in item[reviewtype]]
+
+
+def labels_to_numbers(labels, reference):
+    return [reference.index(el) for el in labels]
+
+
 ####### Load the amazon data
 # load the amazon product data
 json_data = open('data/amazon_products').read()
@@ -11,6 +64,9 @@ json_data = open('data/amazon_products').read()
 # They didn't format the JSON properly -- this fixes that
 # this 
 json_data = json_data.replace('\x01', '').replace('\n', '')
+
+# with open('amazon_products.pkl') as fp:
+#     json_data = pickle.load(fp)
 
 # build a list of tuples where each 
 # product data stream begins and ends
@@ -21,6 +77,7 @@ for pos in re.finditer('}{', json_data):
     prev_ix = pos.start() + 1
 
 
+np.random.shuffle(ix)
 # how many items do we want to load? 10 to test.
 
 
@@ -31,18 +88,14 @@ for pos in re.finditer('}{', json_data):
 # review content and tie it the ASIN -- the unique product ID
 # We can also write out the product categories, etc.
 
-def grab_reviews(item, graphs, reviewtype = 'PrunedReivews'):
-    return [{'ASIN': item["ASIN"], 
-             'text' : it['Content'], 
-             'labels' : get_labels(item, graphs)} for it in item[reviewtype]]
 
 
 
-n = 100
+n = 20000
 
 amazon = (json.loads(json_data[idx[0] : idx[1]]) for idx in ix[:n])
 
-reviews = (review for item in (grab_reviews(t['Item'], graphs) for t in amazon) for review in item)
+reviews = [review for item in (grab_reviews(t['Item'], graphs) for t in amazon) for review in item]
 
 corpus = (review['text'] for review in reviews)
 
@@ -57,69 +110,27 @@ texts = ((word for word in text if (word.isalpha() & (len(word) > 1))) for text 
 reformatted = (' '.join(words) for words in texts)
 
 
+# vectorizer = CountVectorizer(ngram_range=(1, 2), token_pattern=r'\b\w+\b', min_df=2, stop_words=stoplist)
 
-
-from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
-
-vectorizer = CountVectorizer(ngram_range=(1, 2), token_pattern=r'\b\w+\b', min_df=2, stop_words=stoplist)
+vectorizer = CountVectorizer(min_df=2, stop_words=stoplist)
 
 X = vectorizer.fit_transform(reformatted)
 
 
 vectorizer = TfidfVectorizer(min_df=1)
-vectorizer.fit_transform(corpus)
+X = vectorizer.fit_transform(corpus)
+
+
+[Set(review['labels']) for review in reviews]
+
+mlb = MultiLabelBinarizer()
+Y = mlb.fit_transform([Set(review['labels']) for review in reviews])
 
 
 
 
 
 
-
-
-
-
-
-
-def get_parents(item):
-    parents = []
-    if item['BrowseNodes']['BrowseNode'].__class__ is list:
-        for cat in item['BrowseNodes']['BrowseNode']:
-            parent_categ = cat
-            while parent_categ.has_key('Ancestors'):
-                parent_categ = parent_categ['Ancestors']['BrowseNode']
-            parents.append(parent_categ['BrowseNodeId'])
-    else:
-        cat = item['BrowseNodes']['BrowseNode']
-        parent_categ = cat
-        while parent_categ.has_key('Ancestors'):
-            parent_categ = parent_categ['Ancestors']['BrowseNode']
-        parents.append(parent_categ['BrowseNodeId'])
-    return set(parents)
-
-
-[root_labels[it] for t in amazon for it in get_parents(t['Item']) if it in root_labels.keys()]
-
-[get_dict_of_parents(t['Item']) for t in amazon]
-
-
-products = [grab_reviews(t['Item']) for t in amazon]
-categories = [nodeid['BrowseNodeId'] for t in amazon for nodeid in t['Item']['BrowseNodes']['BrowseNode'] if t['Item']['BrowseNodes']['BrowseNode'].__class__ is list]
-
-
-
-def get_labels(item, graphs):
-    labs = list(get_parents(item))
-    if item['BrowseNodes']['BrowseNode'].__class__ is list:
-        for node in item['BrowseNodes']['BrowseNode']:
-            labs.append(int(node['BrowseNodeId']))
-    else:
-        labs.append(int(item['BrowseNodes']['BrowseNode']['BrowseNodeId']))
-    # return labs
-    return list(Set([cat for cat in itertools.chain.from_iterable([get_categories(i, graphs) for i in labs])]))
-
-
-hl_cat = [get_labels(t['Item'], graphs) for t in amazon]
-hl_cat = [(i, get_labels(amazon[i]['Item'])) for i in xrange(0, n)]
 
 
 

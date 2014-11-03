@@ -1,5 +1,6 @@
 import json
 from collections import defaultdict
+import itertools
 
 ####### Load the amazon data
 # load the amazon product data
@@ -18,7 +19,7 @@ for pos in re.finditer('}{', json_data):
 
 
 # how many items do we want to load? 10 to test.
-n = 10
+n = 500
 
 # load each review as a python dict, store them in a list
 amazon = [json.loads(json_data[idx[0] : idx[1]]) for idx in ix[:n]]
@@ -105,4 +106,33 @@ def get_top_label(item, root_labels):
 
 
 products = [grab_reviews(t['Item']) for t in amazon]
+categories = [nodeid['BrowseNodeId'] for t in amazon for nodeid in t['Item']['BrowseNodes']['BrowseNode'] if t['Item']['BrowseNodes']['BrowseNode'].__class__ is list]
+
+
+
+def get_labels(item, graphs):
+    labs = []
+    if item['BrowseNodes']['BrowseNode'].__class__ is list:
+        for node in item['BrowseNodes']['BrowseNode']:
+            labs += list(int(node['BrowseNodeId']))
+    else:
+        labs += list(int(item['BrowseNodes']['BrowseNode']['BrowseNodeId']))
+    return Set([get_categories(i, graph) for i in labs])
+
+def get_labels(item, graphs):
+    labs = list(get_parents(item))
+    if item['BrowseNodes']['BrowseNode'].__class__ is list:
+        for node in item['BrowseNodes']['BrowseNode']:
+            labs.append(int(node['BrowseNodeId']))
+    else:
+        labs.append(int(item['BrowseNodes']['BrowseNode']['BrowseNodeId']))
+    # return labs
+    return Set([cat for cat in itertools.chain.from_iterable([get_categories(i, graphs) for i in labs])])
+
+
+hl_cat = [get_labels(t['Item'], graphs) for t in amazon]
+hl_cat = [(i, get_labels(amazon[i]['Item'])) for i in xrange(0, n)]
+
+
+
 

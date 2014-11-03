@@ -1,7 +1,9 @@
 import json
 from collections import defaultdict
 import itertools
+from nltk.corpus import stopwords
 
+from gensim import corpora, models, similarities
 ####### Load the amazon data
 # load the amazon product data
 json_data = open('data/amazon_products').read()
@@ -36,47 +38,61 @@ for lab in labels:
 
 #######
 
-def get_parents(item):
-    parents = []
-    if item['BrowseNodes']['BrowseNode'].__class__ is list:
-        for cat in item['BrowseNodes']['BrowseNode']:
-            parent_categ = cat
-            while parent_categ.has_key('Ancestors'):
-                parent_categ = parent_categ['Ancestors']['BrowseNode']
-            parents.append(parent_categ['BrowseNodeId'])
-    else:
-        cat = item['BrowseNodes']['BrowseNode']
-        parent_categ = cat
-        while parent_categ.has_key('Ancestors'):
-            parent_categ = parent_categ['Ancestors']['BrowseNode']
-        parents.append(parent_categ['BrowseNodeId'])
-    return set(parents)
-
-
-
-
 def get_top_label(item, root_labels):
     return [root_labels[it] for it in get_parents(item) if it in root_labels.keys()]
-
 
 
 # simple example of what we can do -- we can pull 
 # review content and tie it the ASIN -- the unique product ID
 # We can also write out the product categories, etc.
 
-def grab_reviews(item, reviewtype = 'PrunedEditorialReviews'):
-    return [(item["ASIN"], it['Content'], get_parents()) for it in item[reviewtype]]
+def grab_reviews(item, reviewtype = 'PrunedReviews'):
+    return [{'ASIN': item["ASIN"], 'text' : it['Content'], 'labels' : get_labels(item, graphs)} for it in item[reviewtype]]
 
-# This is a list of lists of product reviews.
-products = [grab_reviews(t['Item']) for t in amazon]
+reviews = [review for item in (grab_reviews(t['Item']) for t in amazon) for review in item]
 
-# this just flattens
-reviews = [review for item in products for review in item]
+corpus = [review['text'] for review in reviews]
+
+stoplist = stopwords.words('english')
+
+texts = [[word for word in document.lower().split() if word not in stoplist] for document in corpus]
+
+texts = [[re.sub("\.|,|\"|-|\'|`|\*","", word) for word in text] for text in texts]
+
+texts = [[word for word in text if (word.isalpha() & (len(word) > 1))] for text in texts]
+
+all_tokens = sum(texts, [])
+
+tokens_once = set(word for word in set(all_tokens) if all_tokens.count(word) == 1)
+
+texts = [[word for word in text if word not in tokens_once] for text in texts]
+
+reformatted = [' '.join(words) for words in texts]
 
 
-from nltk.corpus import stopwords
 
-stop = stopwords.words('english')
+
+
+from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
+
+vectorizer = CountVectorizer(ngram_range=(1, 2), token_pattern=r'\b\w+\b', min_df=2, stop_words=stoplist)
+
+X = vectorizer.fit_transform(reformatted)
+
+
+vectorizer = TfidfVectorizer(min_df=1)
+vectorizer.fit_transform(corpus)
+
+
+
+
+
+
+
+
+
+
+
 
 def get_parents(item):
     parents = []
@@ -93,11 +109,6 @@ def get_parents(item):
             parent_categ = parent_categ['Ancestors']['BrowseNode']
         parents.append(parent_categ['BrowseNodeId'])
     return set(parents)
-
-
-
-def get_top_label(item, root_labels):
-    return [root_labels[it] for it in get_parents(item) if it in root_labels.keys()]
 
 
 [root_labels[it] for t in amazon for it in get_parents(t['Item']) if it in root_labels.keys()]
@@ -111,15 +122,6 @@ categories = [nodeid['BrowseNodeId'] for t in amazon for nodeid in t['Item']['Br
 
 
 def get_labels(item, graphs):
-    labs = []
-    if item['BrowseNodes']['BrowseNode'].__class__ is list:
-        for node in item['BrowseNodes']['BrowseNode']:
-            labs += list(int(node['BrowseNodeId']))
-    else:
-        labs += list(int(item['BrowseNodes']['BrowseNode']['BrowseNodeId']))
-    return Set([get_categories(i, graph) for i in labs])
-
-def get_labels(item, graphs):
     labs = list(get_parents(item))
     if item['BrowseNodes']['BrowseNode'].__class__ is list:
         for node in item['BrowseNodes']['BrowseNode']:
@@ -127,7 +129,7 @@ def get_labels(item, graphs):
     else:
         labs.append(int(item['BrowseNodes']['BrowseNode']['BrowseNodeId']))
     # return labs
-    return Set([cat for cat in itertools.chain.from_iterable([get_categories(i, graphs) for i in labs])])
+    return list(Set([cat for cat in itertools.chain.from_iterable([get_categories(i, graphs) for i in labs])]))
 
 
 hl_cat = [get_labels(t['Item'], graphs) for t in amazon]

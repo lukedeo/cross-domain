@@ -1,4 +1,5 @@
 import networkx as nx
+from sets import Set
 
 heirarchy = open('data/AmazonHeirarchy.json').read()
 
@@ -10,7 +11,7 @@ for lab in labels:
     root_labels[int(lab['BrowseNodeId'])] = lab['Name']
 
 
-from sets import Set
+
 
 def yield_graph(dictionary):
     nodes, names, edges = [], [], []

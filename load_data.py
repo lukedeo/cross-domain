@@ -52,11 +52,6 @@ def grab_reviews(item, graphs, reviewtype = 'PrunedReivews'):
              'text' : it['Content'], 
              'labels' : get_labels(item, graphs)} for it in item[reviewtype]]
 
-
-def labels_to_numbers(labels, reference):
-    return [reference.index(el) for el in labels]
-
-
 ####### Load the amazon data
 # load the amazon product data
 json_data = open('data/amazon_products').read()

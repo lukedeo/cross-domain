@@ -1,3 +1,4 @@
+import sys
 import json
 from collections import defaultdict
 import itertools
@@ -84,18 +85,62 @@ np.random.shuffle(ix)
 # We can also write out the product categories, etc.
 
 
+_ERROR_CODE = 'JSON-ERROR'
 
 
 n = 20000
 
-amazon = (json.loads(json_data[idx[0] : idx[1]]) for idx in ix[:n])
+def yield_json(string):
+    try:
+        return json.loads(string) 
+    except Exception, e:
+        return _ERROR_CODE
 
-reviews = [review for item in (grab_reviews(t['Item'], graphs) for t in amazon) for review in item]
+amazon = [yield_json(json_data[idx[0] : idx[1]]) for idx in ix[n:]]
 
-corpus = (review['text'] for review in reviews)
+amazon = []
+faulty_ix = []
+
+indices = ix[n:]
+ctr = 1
+for idx in indices:
+    _dict = yield_json(json_data[idx[0] : idx[1]])
+    if _dict is not _ERROR_CODE:
+        amazon.append(_dict)
+    else:
+        faulty_ix.append(idx)
+
+    sys.stdout.write('{} of {} entries processed'.format(ctr, len(indices)) + ': %d%%   \r' % (100 * (float(ctr) / len(indices))) )
+    sys.stdout.flush()
+    ctr += 1
+
+reviews = []
+ctr, total = 1, len(amazon)
+
+for item in (grab_reviews(t['Item'], graphs) for t in amazon if not (t == _ERROR_CODE)):
+    if not item == []:
+        for review in item:
+            reviews.append(review)
+    sys.stdout.write('{} of {} entries processed'.format(ctr, total) + ': %d%%   \r' % (100 * (float(ctr) / total)) )
+    sys.stdout.flush()
+    ctr += 1
+
+
+
+
+reviews_ = [review for item in (grab_reviews(t['Item'], graphs) for t in amazon) for review in item]
+
+# amazon = (json.loads(json_data[idx[0] : idx[1]]) for idx in ix[n:200000])
+
+# reviews_ = [review for item in (grab_reviews(t['Item'], graphs) for t in amazon) for review in item]
+
 
 stoplist = stopwords.words('english')
 
+
+['bow_']
+
+corpus = (review['text'] for review in reviews)
 texts = ((word for word in document.lower().split() if word not in stoplist) for document in corpus)
 
 texts = ((re.sub("\.|,|\"|-|\'|`|\*","", word) for word in text) for text in texts)

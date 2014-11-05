@@ -9,13 +9,13 @@ from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 import numpy as np
 
 
-with open('feature-dump.pkl', 'rb') as fp:
+with open('subset/feature-dump.pkl', 'rb') as fp:
 	X = pickle.load(fp)
-with open('feature-extractor-dump.pkl', 'rb') as fp:
+with open('subset/feature-extractor-dump.pkl', 'rb') as fp:
 	vectorizer = pickle.load(fp)
-with open('label-dump.pkl', 'rb') as fp:
+with open('subset/label-dump.pkl', 'rb') as fp:
 	Y = pickle.load(fp)
-with open('label-generator-dump.pkl', 'rb') as fp:
+with open('subset/label-generator-dump.pkl', 'rb') as fp:
 	multilabelbinarizer = pickle.load(fp)
 
 

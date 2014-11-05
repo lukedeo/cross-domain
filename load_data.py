@@ -2,14 +2,15 @@ import sys
 import json
 from collections import defaultdict
 import itertools
-from nltk.corpus import stopwords
 import cPickle as pickle
 import re
+
 from sklearn.preprocessing import MultiLabelBinarizer
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 
 from nltk import word_tokenize          
 from nltk.stem import WordNetLemmatizer 
+from nltk.corpus import stopwords
 
 import numpy as np
 
@@ -53,13 +54,26 @@ def grab_reviews(item, graphs, reviewtype = 'PrunedReivews'):
              'text' : it['Content'], 
              'labels' : get_labels(item, graphs)} for it in item[reviewtype]]
 
+def clean_json_products():
+    """
+    Creates a new JSON file properly formatted for loads
+    """
+
+    infile = open('data/amazon_products')
+    outfile = open('data/amazon_products_cleaned', 'w')
+
+    replacements = {'\x01':'\n'}
+
+    for line in infile:
+        for src, target in replacements.iteritems():
+            line = line.replace(src, target)
+        outfile.write(line)
+    infile.close()
+    outfile.close()
+
 ####### Load the amazon data
 # load the amazon product data
-json_data = open('data/amazon_products').read()
-
-# They didn't format the JSON properly -- this fixes that
-# this 
-json_data = json_data.replace('\x01', '').replace('\n', '')
+json_data = open('data/amazon_products_cleaned').read()
 
 # with open('amazon_products.pkl') as fp:
 #     json_data = pickle.load(fp)

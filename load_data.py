@@ -96,12 +96,11 @@ def yield_json(string):
     except Exception, e:
         return _ERROR_CODE
 
-amazon = [yield_json(json_data[idx[0] : idx[1]]) for idx in ix[n:]]
-
 amazon = []
 faulty_ix = []
 
-indices = ix[n:]
+# indices = ix[n:]
+indices = ix
 ctr = 1
 for idx in indices:
     _dict = yield_json(json_data[idx[0] : idx[1]])
@@ -113,6 +112,7 @@ for idx in indices:
     sys.stdout.write('{} of {} entries processed'.format(ctr, len(indices)) + ': %d%%   \r' % (100 * (float(ctr) / len(indices))) )
     sys.stdout.flush()
     ctr += 1
+
 
 reviews = []
 ctr, total = 1, len(amazon)

@@ -4,6 +4,7 @@ from collections import defaultdict
 import itertools
 import cPickle as pickle
 import re
+from sets import Set
 
 
 # from sklearn.preprocessing import MultiLabelBinarizer
@@ -14,6 +15,7 @@ import re
 # from nltk.corpus import stopwords
 
 from crossdomain import get_amazon_graphs
+from crossdomain.hierarchy import get_categories
 
 import numpy as np
 

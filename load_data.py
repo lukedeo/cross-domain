@@ -62,7 +62,8 @@ def clean_json_products():
     infile = open('data/amazon_products')
     outfile = open('data/amazon_products_cleaned', 'w')
 
-    replacements = {'\x01':'\n'}
+    replacements = {'\x01' : '', 
+                    '\n' : ''}
 
     for line in infile:
         for src, target in replacements.iteritems():

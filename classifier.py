@@ -55,6 +55,15 @@ def train_naive_bayes(reviews, labels, test_reviews, test_labels):
     print "Success rate: " + str(success_rate)
     return success_rate
 
+def log_likelihood_naive_bayes(clf, x, y):
+    logp_neg, logp_pos = zip(*clf.predict_log_proba(x))
+    likelihood_dict = {'y':y, 'negative':logp_neg, 'positive':logp_pos}
+    likelihood = pd.DataFrame(likelihood_dict)
+    negative_sum = likelihood['negative'][likelihood['y']==0].sum()
+    positive_sum = likelihood['positive'][likelihood['y']==1].sum()
+    return negative_sum + positive_sum
+
+
 def usage_example():
 
     # Must have 100 partitions of the data!

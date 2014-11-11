@@ -15,4 +15,14 @@ if __name__ == '__main__':
     domain.product_partition(json_data, graphs, n_partitions, prefix = 'amazon-data')
 
 
+    # can call clean_json_socialmedia() before if you don't have a clean version
+    socialmedia = open('data/Social_Conversations_AmazonLabel_clean').read()
+
+    _ = get_socialmedia(socialmedia, graph)
+    # everything is labelled!
+    # the twitter entries are in twitter.pkl, and the ebay entries are in ebay.pkl
+
+
+
+
     

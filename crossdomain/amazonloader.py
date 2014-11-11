@@ -1,6 +1,5 @@
 import sys
 import json
-from collections import defaultdict
 import itertools
 import cPickle as pickle
 import re
@@ -14,7 +13,7 @@ from sets import Set
 # from nltk.stem import WordNetLemmatizer 
 # from nltk.corpus import stopwords
 
-from crossdomain import get_amazon_graphs
+from crossdomain.hierarchy import get_amazon_graphs
 from crossdomain.hierarchy import get_categories
 
 import numpy as np

@@ -83,7 +83,7 @@ def train_stochastic_gradient_descent(vectorizer, reviews, labels, test_reviews,
     return test_accuracy
     
 
-def train_logistic(reviews, labels, test_reviews, test_labels):
+def train_logistic(vectorizer, reviews, labels, test_reviews, test_labels):
     """
     Standard logistic regression
     """
@@ -134,6 +134,8 @@ def usage_example():
 
 
 def usage_example_2():
+    [reviews, labels] = build_training_data(range(1, 71), 100)
+    [test_reviews, test_labels] = build_training_data(range(71,101), 100)
     vectorizers = [TfidfVectorizer(sublinear_tf=True, max_df=0.5,
                                  stop_words='english',), CountVectorizer()]
     for vect in vectorizers:

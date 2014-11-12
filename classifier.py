@@ -1,6 +1,6 @@
 import pickle
 from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.feature_extraction.text import TfidfTransformer
+from sklearn.feature_extraction.text import TfidfTransformer, TfidfVectorizer
 from sklearn.linear_model import SGDClassifier
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.neighbors import KNeighborsClassifier
@@ -14,6 +14,8 @@ def build_training_data(partitions_to_use, total_num_partitions):
     Builds the training data and labels from the partitions indicated in the list
     partitions to use.
     total_num_partitions is the total number of existing partitions
+
+    Returns the training data in the format [reviews, labels]
     """
 
     FILE_NAME_TEMPLATE = "data/amazon-data-%s-of-%s.pkl"
@@ -37,6 +39,42 @@ def build_training_data(partitions_to_use, total_num_partitions):
         count += 1
     sys.stdout.write('\nData loaded\n')
     return [reviews, labels]
+
+def build_social_data(twitter=True, ebay=True):
+    """
+    Builds the twitter data and gets the labels of each item. Allows retrieving from
+    differents sources.
+
+    Returns the data in the format [social_items, label]
+    """
+
+    TWITTER_FILE = 'data/twitter.pkl'
+    EBAY_FILE = 'data/ebay.pkl'
+
+    # Holds the social items (tweets, ebay reviews...)
+    social_items = []
+    # Holds the labels for each social item
+    # NOTE: For the moment we take the first label we have in the product!
+    labels = []
+
+    count = 0
+    if twitter:
+        tweets = pickle.load(open(TWITTER_FILE))
+        for tweet in tweets:
+            if len(tweet['labels']) != 0:
+                social_items.append(tweet['text'])
+                labels.append(tweet['labels'][0])
+                count += 1
+    if ebay:
+        products = pickle.load(open(EBAY_FILE))
+        for product in products:
+            if len(product['labels']) != 0:
+                social_items.append(product['text'])
+                labels.append(product['labels'][0])
+                count += 1
+    sys.stdout.write('%d elements loaded\n' % count)
+    return [social_items, labels]
+
 
 def train_naive_bayes(reviews, labels, test_reviews, test_labels):
 
@@ -140,4 +178,10 @@ def usage_example_2():
                                  stop_words='english',), CountVectorizer()]
     for vect in vectorizers:
         print vect
-        train_stochastic_gradient_descent(vectorizer, reviews, labels, test_reviews, test_labels)
+        train_stochastic_gradient_descent(vect, reviews, labels, test_reviews, test_labels)
+
+def example_crossdomain():
+    [reviews, labels] = build_training_data(range(1,41), 100)
+    [social_items, social_labels] = build_social_data()
+
+    train_naive_bayes(reviews, labels, social_items, social_labels)

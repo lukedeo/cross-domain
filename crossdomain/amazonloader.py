@@ -24,17 +24,17 @@ import numpy as np
 #     def __call__(self, doc):
 #         return [self.wnl.lemmatize(t) for t in word_tokenize(doc)]
 
-def get_parents(item):
+def get_parents(item, node_access_key = 'BrowseNodes'):
     parents = []
     try:
-        if item['BrowseNodes']['BrowseNode'].__class__ is list:
-            for cat in item['BrowseNodes']['BrowseNode']:
+        if item[node_access_key]['BrowseNode'].__class__ is list:
+            for cat in item[node_access_key]['BrowseNode']:
                 parent_categ = cat
                 while parent_categ.has_key('Ancestors'):
                     parent_categ = parent_categ['Ancestors']['BrowseNode']
                 parents.append(parent_categ['BrowseNodeId'])
         else:
-            cat = item['BrowseNodes']['BrowseNode']
+            cat = item[node_access_key]['BrowseNode']
             parent_categ = cat
             while parent_categ.has_key('Ancestors'):
                 parent_categ = parent_categ['Ancestors']['BrowseNode']

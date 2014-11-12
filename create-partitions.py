@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 
 import crossdomain as domain
+from crossdomain.hierarchy import get_amazon_graphs
+from crossdomain.amazonloader import product_partition
 
 if __name__ == '__main__':
     
@@ -8,11 +10,11 @@ if __name__ == '__main__':
     json_data = open('data/amazon_products_cleaned').read()
 
     print 'Parsing hierarchy...'
-    graphs = domain.get_amazon_graphs('data/AmazonHeirarchy.json')
+    graphs = get_amazon_graphs('data/AmazonHeirarchy.json')
 
-    n_partitions = 1000
+    n_partitions = 100
 
-    domain.product_partition(json_data, graphs, n_partitions, prefix = 'amazon-data')
+    product_partition(json_data, graphs, n_partitions, prefix = 'amazon-data')
 
 
     

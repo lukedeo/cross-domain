@@ -2,6 +2,7 @@ import pickle
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.feature_extraction.text import TfidfTransformer, TfidfVectorizer
 from sklearn.linear_model import SGDClassifier
+from sklearn.linear_model import LogisticRegression
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.neighbors import KNeighborsClassifier
 import numpy as np
@@ -101,63 +102,61 @@ def log_likelihood(clf, x, y):
     positive = ~negative
     return prob[negative, 0].sum() + prob[positive, 1].sum()
 
-def train_stochastic_gradient_descent(vectorizer, reviews, labels, test_reviews, test_labels):
-    """
-    Incrementally trained logistic regression
-    """
-    X_train = vectorizer.fit_transform(reviews)
-    Y_train = vectorizer.fit_tranform(labels)
-    clf = SGDClassifier(loss="hinge", penalty="l2").fit(X_train, Y_train)
-    print clf
-    X_test = vectorizer.transform(test_reviews)
-    Y_test = vectorizer.transform(test_labels)
-    predicted = clf.predict(X_test)
+def train_stochastic_gradient_descent(reviews, labels, test_reviews, test_labels):
+    count_vect = CountVectorizer()
+    X_train_counts = count_vect.fit_transform(reviews)
+    tfidf_transformer = TfidfTransformer(use_idf=True).fit(X_train_counts)
+    X_train_tfidf = tfidf_transformer.transform(X_train_counts)
+    clf = SGDClassifier(loss="hinge", penalty="l2").fit(X_train_tfidf, labels)
 
-    # we can check if overfit/underfit
-    training_accuracy = 100 * clf.score(X_train, Y_train)
-    test_accuracy = 100 * clf.score(X_test, Y_test)
+    print ("Trained!")
 
-    print "Success rate: " + str(test_accuracy) + "%"
-    return test_accuracy
-    
+    X_test_counts = count_vect.transform(test_reviews)
+    X_test_tfidf = tfidf_transformer.transform(X_test_counts)
 
-def train_logistic(vectorizer, reviews, labels, test_reviews, test_labels):
-    """
-    Standard logistic regression
-    """
-    X_train = vectorizer.fit_transform(reviews)
-    Y_train = vectorizer.fit_tranform(labels)
-    clf = linear_model.LogisticRegression(C=1e5),fit(X_train, Y_train)
-    print clf
-    X_test = vectorizer.transform(test_reviews)
-    Y_test = vectorizer.transform(test_labels)
-    predicted = clf.predict(X_test)
+    predicted = clf.predict(X_test_tfidf)
+    success_rate = np.mean(predicted == test_labels)
 
-    training_accuracy = 100 * clf.score(X_train, Y_train)
-    test_accuracy = 100 * clf.score(X_test, Y_test)
+    print "Success rate: " + str(success_rate)
+    return success_rate
 
-    print "Success rate: " + str(test_accuracy) + "%"
-    return test_accuracy
-    
+def train_logistic(reviews, labels, test_reviews, test_labels):
+    count_vect = CountVectorizer()
+    X_train_counts = count_vect.fit_transform(reviews)
+    tfidf_transformer = TfidfTransformer(use_idf=True).fit(X_train_counts)
+    X_train_tfidf = tfidf_transformer.transform(X_train_counts)
+    clf = LogisticRegression(C=1e5).fit(X_train_tfidf, labels)
 
-def train_kNN(vectorizer, reviews, labels, test_reviews, test_labels):
-    X_train = vectorizer.fit_transform(reviews)
-    Y_train = vectorizer.fit_tranform(labels)
-    clf = KNeighborsClassifier(n_neighbors=7).fit(X_train, Y_train) # random # for now
+    print ("Trained!")
 
-    X_test = vectorizer.transform(test_reviews)
-    Y_test = vectorizer.transform(test_labels)
-    predicted = clf.predict(X_test)
-    predicted_probs = clf.predict_proba(Xtest) # can also use log_proba
+    X_test_counts = count_vect.transform(test_reviews)
+    X_test_tfidf = tfidf_transformer.transform(X_test_counts)
 
-    training_accuracy = 100 * clf.score(xtrain, ytrain)
-    test_accuracy = 100 * clf.score(xtest, ytest)
+    predicted = clf.predict(X_test_tfidf)
+    success_rate = np.mean(predicted == test_labels)
 
-    proba = classifier(clf,X_train,X_test,y_train,y_test, prints=False)
-    probs = np.column_stack((probs, proba)) 
+    print "Success rate: " + str(success_rate)
+    return success_rate
 
-    print "Success rate: " + str(test_accuracy) + "%"
-    return test_accuracy
+def train_kNN(reviews, labels, test_reviews, test_labels):
+    count_vect = CountVectorizer()
+    X_train_counts = count_vect.fit_transform(reviews)
+    tfidf_transformer = TfidfTransformer(use_idf=True).fit(X_train_counts)
+    X_train_tfidf = tfidf_transformer.transform(X_train_counts)
+    clf = KNeighborsClassifier(n_neighbors=7).fit(X_train_tfidf, labels) # random # for now
+
+
+    print ("Trained!")
+
+    X_test_counts = count_vect.transform(test_reviews)
+    X_test_tfidf = tfidf_transformer.transform(X_test_counts)
+
+    predicted = clf.predict(X_test_tfidf)
+    predicted_probs = clf.predict_proba(X_test) # can also use log_proba
+    success_rate = np.mean(predicted == test_labels)
+
+    print "Success rate: " + str(success_rate)
+    return success_rate
 
 
 def usage_example():
@@ -169,6 +168,12 @@ def usage_example():
 
     train_naive_bayes(reviews, labels, test_reviews, test_labels)
 
+def load_data():
+    [reviews, labels] = build_training_data(range(1, 2), 100);
+    [test_reviews, test_labels] = build_training_data(range(2, 4), 100);
+    return reviews, labels, test_reviews, test_labels
+
+reviews, labels, test_reviews, test_labels = load_data()
 
 
 def usage_example_2():
@@ -179,6 +184,8 @@ def usage_example_2():
     for vect in vectorizers:
         print vect
         train_stochastic_gradient_descent(vect, reviews, labels, test_reviews, test_labels)
+
+
 
 def example_crossdomain():
     [reviews, labels] = build_training_data(range(1,41), 100)

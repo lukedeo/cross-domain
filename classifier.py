@@ -152,7 +152,7 @@ def train_kNN(reviews, labels, test_reviews, test_labels):
     X_test_tfidf = tfidf_transformer.transform(X_test_counts)
 
     predicted = clf.predict(X_test_tfidf)
-    predicted_probs = clf.predict_proba(X_test) # can also use log_proba
+    predicted_probs = clf.predict_proba(X_test_tfidf) # can also use log_proba
     success_rate = np.mean(predicted == test_labels)
 
     print "Success rate: " + str(success_rate)

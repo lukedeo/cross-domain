@@ -8,187 +8,269 @@ from sklearn.neighbors import KNeighborsClassifier
 import numpy as np
 import sys
 
-### ALERT: some products don't have LABELS!!!
-
-def build_training_data(partitions_to_use, total_num_partitions):
-    """
-    Builds the training data and labels from the partitions indicated in the list
-    partitions to use.
-    total_num_partitions is the total number of existing partitions
-
-    Returns the training data in the format [reviews, labels]
-    """
+class CrossDomainClassifier(object):
 
     FILE_NAME_TEMPLATE = "data/amazon-data-%s-of-%s.pkl"
-
-    # Holds the reviews obtained in the data
-    reviews = []
-    # Holds the labels for each review
-    # NOTE: For the moment we take the first label we have in the product!
-    labels = []
-    count = 1
-    for i in partitions_to_use:
-        sys.stdout.write('Importing package %d out of %d \r' % (count, len(partitions_to_use)))
-        sys.stdout.flush()
-
-        file_to_open = FILE_NAME_TEMPLATE % (i, total_num_partitions)
-        [products, prod_reviews] = pickle.load(open(file_to_open))
-        for review in prod_reviews:
-            if len(review['labels']) != 0:
-                reviews.append(review['text'])
-                labels.append(review['labels'][0])
-        count += 1
-    sys.stdout.write('\nData loaded\n')
-    return [reviews, labels]
-
-def build_social_data(twitter=True, ebay=True):
-    """
-    Builds the twitter data and gets the labels of each item. Allows retrieving from
-    differents sources.
-
-    Returns the data in the format [social_items, label]
-    """
-
     TWITTER_FILE = 'data/twitter.pkl'
     EBAY_FILE = 'data/ebay.pkl'
 
-    # Holds the social items (tweets, ebay reviews...)
-    social_items = []
-    # Holds the labels for each social item
-    # NOTE: For the moment we take the first label we have in the product!
-    labels = []
+    def __init__(self, partitions_to_use, total_num_partitions):
+        self.partitions_to_use = partitions_to_use
+        self.total_num_partitions = total_num_partitions
 
-    count = 0
-    if twitter:
-        tweets = pickle.load(open(TWITTER_FILE))
+    @staticmethod
+    def load_training_data(partitions_to_use, total_num_partitions):
+        """
+        Builds the training data and labels from the partitions indicated in the list
+        partitions to use.
+        total_num_partitions is the total number of existing partitions
+        """
+
+        # Holds the reviews obtained in the data
+        reviews = []
+        # Holds the labels for each review
+        # NOTE: For the moment we take the first label we have in the product!
+        labels = []
+        count = 1
+        for i in partitions_to_use:
+            sys.stdout.write('Importing package %d out of %d \r' % (count, len(partitions_to_use)))
+            sys.stdout.flush()
+
+            file_to_open = CrossDomainClassifier.FILE_NAME_TEMPLATE % (i, total_num_partitions)
+            [products, prod_reviews] = pickle.load(open(file_to_open))
+            for review in prod_reviews:
+                if len(review['labels']) != 0:
+                    reviews.append(review['text'])
+                    labels.append(review['labels'][0])
+            count += 1
+        sys.stdout.write('\nData loaded\n')
+
+        return [reviews, labels]
+
+    def __load_cross_domain_data(self):
+        """
+        Builds the twitter data and gets the labels of each item. Allows retrieving from
+        differents sources.
+
+        Returns the data in the format [social_items, label]
+        """
+
+        # Holds the social items (tweets, ebay reviews...)
+        social_items = []
+        # Holds the labels for each social item
+        # NOTE: For the moment we take the first label we have in the product!
+        labels = []
+
+        count = 0
+        tweets = pickle.load(open(self.TWITTER_FILE))
         for tweet in tweets:
             if len(tweet['labels']) != 0:
                 social_items.append(tweet['text'])
                 labels.append(tweet['labels'][0])
                 count += 1
-    if ebay:
-        products = pickle.load(open(EBAY_FILE))
+        tweets = pickle.load
+
+        self.twitter_items = social_items
+        self.twitter_labels = labels
+
+        social_items = []
+        labels = []
+        products = pickle.load(open(self.EBAY_FILE))
         for product in products:
             if len(product['labels']) != 0:
                 social_items.append(product['text'])
                 labels.append(product['labels'][0])
                 count += 1
-    sys.stdout.write('%d elements loaded\n' % count)
-    return [social_items, labels]
+
+        self.ebay_items = social_items
+        self.ebay_labels = labels
+
+    def load_data(self):
+        self.reviews, self.labels = self.load_training_data(self.partitions_to_use, self.total_num_partitions)
+        self.__load_cross_domain_data()
+
+    def load_test_data(self, partitions_to_use):
+        """
+        Loads test data into the object
+        """
+        self.test_reviews, self.test_labels = self.load_training_data(partitions_to_use, self.total_num_partitions)
+
+    def get_data(self):
+        """
+        Returns training and label data
+        """
+        return [self.reviews, self.labels]
+
+    def get_cross_domain_data(self):
+        return {'twitter': [self.twitter_items, self.twitter_labels],
+                'ebay': [self.ebay_items, self.ebay_labels]}
+
+    def train(self):
+        raise NotImplementedError()
+
+    def __test(self, reviews, labels):
+        raise NotImplementedError()
+
+    def get_training_error(self):
+        return self.__test(self.reviews, self.labels)
+
+    def get_generalized_error(self):
+        return self.__test(self.test_reviews, self.test_labels)
+
+    def get_crossdomain_error(self):
+        return {'twitter': self.__test(self.twitter_items, self.twitter_labels),
+                'ebay': self.__test(self.ebay_items, self.ebay_labels)}
 
 
-def train_naive_bayes(reviews, labels, test_reviews, test_labels):
+class NaiveBayesClassifier(CrossDomainClassifier):
+    """
+    Naive bayes classifier with tfidf
+    """
 
-    count_vect = CountVectorizer()
-    X_train_counts = count_vect.fit_transform(reviews)
-    tfidf_transformer = TfidfTransformer(use_idf=True).fit(X_train_counts)
-    X_train_tfidf = tfidf_transformer.transform(X_train_counts)
-    clf = MultinomialNB().fit(X_train_tfidf, labels)
+    def train(self):
+        if not hasattr(self, 'reviews'):
+            print "No data loaded"
+            return
 
-    print ("Trained!")
+        self.count_vect = CountVectorizer()
+        X_train_counts = self.count_vect.fit_transform(self.reviews)
+        self.tfidf_transformer = TfidfTransformer(use_idf=True).fit(X_train_counts)
+        X_train_tfidf = self.tfidf_transformer.transform(X_train_counts)
+        self.clf = MultinomialNB().fit(X_train_tfidf, self.labels)
 
-    X_test_counts = count_vect.transform(test_reviews)
-    X_test_tfidf = tfidf_transformer.transform(X_test_counts)
+    def __test(self, reviews, labels):
+        X_training_counts = self.count_vect.transform(reviews)
+        X_training_tfidf = self.tfidf_transformer.transform(X_training_counts)
 
-    predicted = clf.predict(X_test_tfidf)
-    success_rate = np.mean(predicted == test_labels)
+        predicted = self.clf.predict(X_training_tfidf)
+        return 1 - np.mean(predicted == labels)
 
-    print "Success rate: " + str(success_rate)
-    return success_rate
+    def get_training_error(self):
+        return self.__test(self.reviews, self.labels)
 
-def log_likelihood(clf, x, y):
-    prob = clf.predict_log_proba(x)
-    negative = y == 0
-    positive = ~negative
-    return prob[negative, 0].sum() + prob[positive, 1].sum()
+    def get_generalized_error(self):
+        return self.__test(self.test_reviews, self.test_labels)
 
-def train_stochastic_gradient_descent(reviews, labels, test_reviews, test_labels):
-    count_vect = CountVectorizer()
-    X_train_counts = count_vect.fit_transform(reviews)
-    tfidf_transformer = TfidfTransformer(use_idf=True).fit(X_train_counts)
-    X_train_tfidf = tfidf_transformer.transform(X_train_counts)
-    clf = SGDClassifier(loss="hinge", penalty="l2").fit(X_train_tfidf, labels)
-
-    print ("Trained!")
-
-    X_test_counts = count_vect.transform(test_reviews)
-    X_test_tfidf = tfidf_transformer.transform(X_test_counts)
-
-    predicted = clf.predict(X_test_tfidf)
-    success_rate = np.mean(predicted == test_labels)
-
-    print "Success rate: " + str(success_rate)
-    return success_rate
-
-def train_logistic(reviews, labels, test_reviews, test_labels):
-    count_vect = CountVectorizer()
-    X_train_counts = count_vect.fit_transform(reviews)
-    tfidf_transformer = TfidfTransformer(use_idf=True).fit(X_train_counts)
-    X_train_tfidf = tfidf_transformer.transform(X_train_counts)
-    clf = LogisticRegression(C=1e5).fit(X_train_tfidf, labels)
-
-    print ("Trained!")
-
-    X_test_counts = count_vect.transform(test_reviews)
-    X_test_tfidf = tfidf_transformer.transform(X_test_counts)
-
-    predicted = clf.predict(X_test_tfidf)
-    success_rate = np.mean(predicted == test_labels)
-
-    print "Success rate: " + str(success_rate)
-    return success_rate
-
-def train_kNN(reviews, labels, test_reviews, test_labels):
-    count_vect = CountVectorizer()
-    X_train_counts = count_vect.fit_transform(reviews)
-    tfidf_transformer = TfidfTransformer(use_idf=True).fit(X_train_counts)
-    X_train_tfidf = tfidf_transformer.transform(X_train_counts)
-    clf = KNeighborsClassifier(n_neighbors=7).fit(X_train_tfidf, labels) # random # for now
+    def get_crossdomain_error(self):
+        return {'twitter': self.__test(self.twitter_items, self.twitter_labels),
+                'ebay': self.__test(self.ebay_items, self.ebay_labels)}
 
 
-    print ("Trained!")
+class SGD(CrossDomainClassifier):
+    """
+    Stochastic Gradient Descent with Tfidf
+    """
 
-    X_test_counts = count_vect.transform(test_reviews)
-    X_test_tfidf = tfidf_transformer.transform(X_test_counts)
+    def train(self):
+        if not hasattr(self, 'reviews'):
+            print "No data loaded"
+            return
 
-    predicted = clf.predict(X_test_tfidf)
-    predicted_probs = clf.predict_proba(X_test_tfidf) # can also use log_proba
-    success_rate = np.mean(predicted == test_labels)
+        self.count_vect = CountVectorizer()
+        X_train_counts = self.count_vect.fit_transform(self.reviews)
+        self.tfidf_transformer = TfidfTransformer(use_idf=True).fit(X_train_counts)
+        X_train_tfidf = self.tfidf_transformer.transform(X_train_counts)
+        self.clf = SGDClassifier(loss="hinge", penalty="l2").fit(X_train_tfidf, self.labels)
 
-    print "Success rate: " + str(success_rate)
-    return success_rate
+    def __test(self, reviews, labels):
+        X_training_counts = self.count_vect.transform(reviews)
+        X_training_tfidf = self.tfidf_transformer.transform(X_training_counts)
+
+        predicted = self.clf.predict(X_training_tfidf)
+        return 1 - np.mean(predicted == labels)
+
+    def get_training_error(self):
+        return self.__test(self.reviews, self.labels)
+
+    def get_generalized_error(self):
+        return self.__test(self.test_reviews, self.test_labels)
+
+    def get_crossdomain_error(self):
+        return {'twitter': self.__test(self.twitter_items, self.twitter_labels),
+                'ebay': self.__test(self.ebay_items, self.ebay_labels)}
+
+class LogisticClassifier(CrossDomainClassifier):
+    """
+    Logistic Regression with Tfidf
+    """
+
+    def train(self):
+        if not hasattr(self, 'reviews'):
+            print "No data loaded"
+            return
+
+        self.count_vect = CountVectorizer()
+        X_train_counts = self.count_vect.fit_transform(self.reviews)
+        self.tfidf_transformer = TfidfTransformer(use_idf=True).fit(X_train_counts)
+        X_train_tfidf = self.tfidf_transformer.transform(X_train_counts)
+        self.clf = LogisticRegression(C=1e5).fit(X_train_tfidf, self.labels)
+
+    def __test(self, reviews, labels):
+        X_training_counts = self.count_vect.transform(reviews)
+        X_training_tfidf = self.tfidf_transformer.transform(X_training_counts)
+
+        predicted = self.clf.predict(X_training_tfidf)
+        return 1 - np.mean(predicted == labels)
+
+    def get_training_error(self):
+        return self.__test(self.reviews, self.labels)
+
+    def get_generalized_error(self):
+        return self.__test(self.test_reviews, self.test_labels)
+
+    def get_crossdomain_error(self):
+        return {'twitter': self.__test(self.twitter_items, self.twitter_labels),
+                'ebay': self.__test(self.ebay_items, self.ebay_labels)}
+
+class kNNClassifier(CrossDomainClassifier):
+    """
+    K nearest neighbors with Tfidf
+    """
+
+    def train(self):
+        if not hasattr(self, 'reviews'):
+            print "No data loaded"
+            return
+
+        self.count_vect = CountVectorizer()
+        X_train_counts = self.count_vect.fit_transform(self.reviews)
+        self.tfidf_transformer = TfidfTransformer(use_idf=True).fit(X_train_counts)
+        X_train_tfidf = self.tfidf_transformer.transform(X_train_counts)
+        self.clf = KNeighborsClassifier(n_neighbors=7).fit(X_train_tfidf, self.labels)
+
+    def __test(self, reviews, labels):
+        X_training_counts = self.count_vect.transform(reviews)
+        X_training_tfidf = self.tfidf_transformer.transform(X_training_counts)
+
+        predicted = self.clf.predict(X_training_tfidf)
+        return 1 - np.mean(predicted == labels)
+
+    def get_training_error(self):
+        return self.__test(self.reviews, self.labels)
+
+    def get_generalized_error(self):
+        return self.__test(self.test_reviews, self.test_labels)
+
+    def get_crossdomain_error(self):
+        return {'twitter': self.__test(self.twitter_items, self.twitter_labels),
+                'ebay': self.__test(self.ebay_items, self.ebay_labels)}
 
 
-def usage_example():
 
-    # Must have 100 partitions of the data!
-    # Partition packages must be on folder data!
-    [reviews, labels] = build_training_data(range(1, 71), 100)
-    [test_reviews, test_labels] = build_training_data(range(71,101), 100)
+def example():
+    NB = NaiveBayesClassifier(range(1,10), 100) # Select which partitions we are going to use
+    NB.load_data() # Actually load the data from the partitions
+    NB.train()
+    train_error = NB.get_training_error()
+    print ("Training error: " + str(train_error))
 
-    train_naive_bayes(reviews, labels, test_reviews, test_labels)
+    # Load some test data and get error
+    NB.load_test_data(range(10,13))
+    generalized_error = NB.get_generalized_error()
+    print ("Test erorr: " + str(generalized_error))
 
-def load_data():
-    [reviews, labels] = build_training_data(range(1, 71), 100);
-    [test_reviews, test_labels] = build_training_data(range(71, 101), 100);
-    return reviews, labels, test_reviews, test_labels
+    # Cross domain classification error
+    cs_error = NB.get_crossdomain_error()
+    print ("Twitter data error: " + str(cs_error['twitter']))
+    print ("Ebay data error: " + str(cs_error['ebay']))
 
-reviews, labels, test_reviews, test_labels = load_data()
-
-
-def usage_example_2():
-    [reviews, labels] = build_training_data(range(1, 71), 100)
-    [test_reviews, test_labels] = build_training_data(range(71,101), 100)
-    vectorizers = [TfidfVectorizer(sublinear_tf=True, max_df=0.5,
-                                 stop_words='english',), CountVectorizer()]
-    for vect in vectorizers:
-        print vect
-        train_stochastic_gradient_descent(vect, reviews, labels, test_reviews, test_labels)
-
-
-
-def example_crossdomain():
-    [reviews, labels] = build_training_data(range(1,41), 100)
-    [social_items, social_labels] = build_social_data()
-
-    train_naive_bayes(reviews, labels, social_items, social_labels)

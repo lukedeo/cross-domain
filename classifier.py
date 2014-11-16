@@ -169,8 +169,8 @@ def usage_example():
     train_naive_bayes(reviews, labels, test_reviews, test_labels)
 
 def load_data():
-    [reviews, labels] = build_training_data(range(1, 2), 100);
-    [test_reviews, test_labels] = build_training_data(range(2, 4), 100);
+    [reviews, labels] = build_training_data(range(1, 71), 100);
+    [test_reviews, test_labels] = build_training_data(range(71, 101), 100);
     return reviews, labels, test_reviews, test_labels
 
 reviews, labels, test_reviews, test_labels = load_data()

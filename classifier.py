@@ -11,6 +11,63 @@ import numpy as np
 import sys
 import random
 
+# Complete list of Amazon categories (without KindleStore ebooks)
+# Can be useful for reference
+categories = [u'SportingGoods',
+              u'Books',
+              u'Magazines',
+              u'Music',
+              u'Automotive',
+              u'Baby',
+              u'Electronics',
+              u'Toys',
+              u'Tools',
+              u'HealthPersonalCare',
+              u'Beauty',
+              u'VideoGames',
+              u'OfficeProducts',
+              u'MusicalInstruments',
+              u'LawnAndGarden',
+              u'ArtsAndCrafts',
+              u'Kitchen',
+              u'Grocery',
+              u'Appliances',
+              u'Everything Else',
+              u'Movies & TV',
+              u'Software',
+              u'Collectibles',
+              u'MobileApps']
+
+def get_categories_stats(labels, display_info=True):
+    """
+    Given a set of labels / categories, counts the elements of each category and
+    provides the relative appearance of the category in the dataset
+    """
+    categories = []
+    for label in labels:
+        if label not in categories:
+            categories.append(label)
+
+    categories_count = dict.fromkeys(categories)
+    total_count = len(labels)
+    for cat in categories:
+        categories_count[cat] = labels.count(cat)
+        if display_info:
+            print ("%s: %d elements, %f" % (cat, categories_count[cat], categories_count[cat] * 100.0 / total_count))
+
+    return categories_count
+
+def plot_confusion_matrix(cm):
+    """
+    Plots a scikit learn confusion matrix
+    """
+    plt.matshow(cm)
+    plt.title('Confusion matrix')
+    plt.colorbar()
+    plt.ylabel('True category')
+    plt.xlabel('Predicted category')
+    plt.show()
+
 class CrossDomainClassifier(object):
 
     FILE_NAME_TEMPLATE = "data/amazon-data-%s-of-%s.pkl"
@@ -52,6 +109,37 @@ class CrossDomainClassifier(object):
         sys.stdout.write('\nData loaded\n')
 
         return [reviews, labels]
+
+    @staticmethod
+    def __prune_data(reviews, labels, max_elements_by_category):
+        """ Balances given categories to a max number of elements so that more data can be processed or in order
+        to balance classes. Removal of elements is random"""
+
+        # Randomly shuffle lists of reviews and labels so that deletion is random
+        reviews_shuf = []
+        labels_shuf = []
+        index_shuf = range(len(reviews))
+        random.shuffle(index_shuf)
+        for i in index_shuf:
+            reviews_shuf.append(reviews[i])
+            labels_shuf.append(labels[i])
+
+        # Add categories and reviews until max is obtained or there are no more elements
+        reviews_result = []
+        labels_result = []
+        categories_count = get_categories_stats(labels, display_info=False)
+        for cat in categories_count:
+            objective_count = min(categories_count[cat], max_elements_by_category)
+            i = 0
+            elements_added = 0
+            while elements_added != objective_count:
+                if labels_shuf[i] == cat:
+                    labels_result.append(labels_shuf[i])
+                    reviews_result.append(reviews_shuf[i])
+                    elements_added += 1
+                i += 1
+
+        return (reviews_result, labels_result)
 
     def __load_cross_domain_data(self):
         """
@@ -105,6 +193,18 @@ class CrossDomainClassifier(object):
         Loads test data into the object
         """
         self.test_reviews, self.test_labels = self.load_training_data(partitions_to_use, self.total_num_partitions)
+
+    def prune_training_data(self, max_elements_by_category):
+        """
+        Prunes training data so that classes are more balanced
+        """
+        self.reviews, self.labels = self.__prune_data(self.reviews, self.labels, max_elements_by_category)
+
+    def prune_test_data(self, max_elements_by_category):
+        """
+        Prunes test data so that classes are more balanced
+        """
+        self.test_reviews, self.test_labels = self.__prune_data(self.test_reviews, self.test_labels, max_elements_by_category)
 
     def get_data(self):
         """
@@ -271,14 +371,6 @@ class kNNClassifier(CrossDomainClassifier):
         return {'twitter': self.__test(self.twitter_items, self.twitter_labels),
                 'ebay': self.__test(self.ebay_items, self.ebay_labels)}
 
-
-def plot_confusion_matrix(cm):
-    plt.matshow(cm)
-    plt.title('Confusion matrix')
-    plt.colorbar()
-    plt.ylabel('True category')
-    plt.xlabel('Predicted category')
-    plt.show()
 
 
 

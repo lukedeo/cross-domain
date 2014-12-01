@@ -5,8 +5,11 @@ from sklearn.linear_model import SGDClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.neighbors import KNeighborsClassifier
+from sklearn.metrics import confusion_matrix
+import matplotlib.pyplot as plt
 import numpy as np
 import sys
+import random
 
 class CrossDomainClassifier(object):
 
@@ -41,7 +44,10 @@ class CrossDomainClassifier(object):
             for review in prod_reviews:
                 if len(review['labels']) != 0:
                     reviews.append(review['text'])
-                    labels.append(review['labels'][0])
+                    label = review['labels'][random.choice(range(len(review['labels'])))] # Choose at random
+                    if label == u'KindleStore': # Kindle and books are the same entity
+                        label = u'Books'
+                    labels.append(label)
             count += 1
         sys.stdout.write('\nData loaded\n')
 
@@ -66,9 +72,11 @@ class CrossDomainClassifier(object):
         for tweet in tweets:
             if len(tweet['labels']) != 0:
                 social_items.append(tweet['text'])
-                labels.append(tweet['labels'][0])
+                label = tweet['labels'][random.choice(range(len(tweet['labels'])))]
+                if label == u'KindleStore': # Kindle and books are the same entity
+                    label = u'Books'
+                labels.append(label)
                 count += 1
-        tweets = pickle.load
 
         self.twitter_items = social_items
         self.twitter_labels = labels
@@ -79,7 +87,10 @@ class CrossDomainClassifier(object):
         for product in products:
             if len(product['labels']) != 0:
                 social_items.append(product['text'])
-                labels.append(product['labels'][0])
+                label = product['labels'][random.choice(range(len(product['labels'])))]
+                if label == u'KindleStore': # Kindle and books are the same entity
+                    label = u'Books'
+                labels.append(label)
                 count += 1
 
         self.ebay_items = social_items
@@ -121,7 +132,6 @@ class CrossDomainClassifier(object):
         return {'twitter': self.__test(self.twitter_items, self.twitter_labels),
                 'ebay': self.__test(self.ebay_items, self.ebay_labels)}
 
-
 class NaiveBayesClassifier(CrossDomainClassifier):
     """
     Naive bayes classifier with tfidf
@@ -143,6 +153,8 @@ class NaiveBayesClassifier(CrossDomainClassifier):
         X_training_tfidf = self.tfidf_transformer.transform(X_training_counts)
 
         predicted = self.clf.predict(X_training_tfidf)
+        self.cm = confusion_matrix(labels, predicted)
+
         return 1 - np.mean(predicted == labels)
 
     def get_training_error(self):
@@ -177,6 +189,8 @@ class SGD(CrossDomainClassifier):
         X_training_tfidf = self.tfidf_transformer.transform(X_training_counts)
 
         predicted = self.clf.predict(X_training_tfidf)
+        self.cm = confusion_matrix(labels, predicted)
+
         return 1 - np.mean(predicted == labels)
 
     def get_training_error(self):
@@ -210,6 +224,7 @@ class LogisticClassifier(CrossDomainClassifier):
         X_training_tfidf = self.tfidf_transformer.transform(X_training_counts)
 
         predicted = self.clf.predict(X_training_tfidf)
+        self.cm = confusion_matrix(labels, predicted)
         return 1 - np.mean(predicted == labels)
 
     def get_training_error(self):
@@ -243,6 +258,7 @@ class kNNClassifier(CrossDomainClassifier):
         X_training_tfidf = self.tfidf_transformer.transform(X_training_counts)
 
         predicted = self.clf.predict(X_training_tfidf)
+        self.cm = confusion_matrix(labels, predicted)
         return 1 - np.mean(predicted == labels)
 
     def get_training_error(self):
@@ -256,6 +272,15 @@ class kNNClassifier(CrossDomainClassifier):
                 'ebay': self.__test(self.ebay_items, self.ebay_labels)}
 
 
+def plot_confusion_matrix(cm):
+    plt.matshow(cm)
+    plt.title('Confusion matrix')
+    plt.colorbar()
+    plt.ylabel('True category')
+    plt.xlabel('Predicted category')
+    plt.show()
+
+
 
 def example():
     NB = NaiveBayesClassifier(range(1,10), 100) # Select which partitions we are going to use
@@ -267,7 +292,7 @@ def example():
     # Load some test data and get error
     NB.load_test_data(range(10,13))
     generalized_error = NB.get_generalized_error()
-    print ("Test erorr: " + str(generalized_error))
+    print ("Test error: " + str(generalized_error))
 
     # Cross domain classification error
     cs_error = NB.get_crossdomain_error()

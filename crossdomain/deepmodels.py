@@ -29,10 +29,11 @@ class BaseModel(object):
             Z = S.hstack([bias, X]).tocsr()
         else:
             Z = numpy.insert(X, 0, 1, 1)
+        self._Z = Z
         return self.activation(Z.dot(self.W))
 
 class RBM(BaseModel):
-    """RBM"""
+    """RBM inherited"""
     def __init__(self, n_visible, n_hidden, visible_unit = 'binary'):
         super(RBM, self).__init__(n_visible, n_hidden, sigmoid)
         self.n_visible = n_visible
@@ -42,9 +43,20 @@ class RBM(BaseModel):
     def backward(self, H):
         if isinstance(H, S.csr_matrix):
             bias = S.csr_matrix(numpy.ones((H.shape[0], 1))) 
-            csr = S.hstack([bias, H]).tocsr()
+            B = S.hstack([bias, H]).tocsr()
         else:
-            csr = numpy.insert(H, 0, 1, 1)
+            B = numpy.insert(H, 0, 1, 1)
+        self._B = B
+        if visible_unit == 'binary':
+            return sigmoid(B.dot(self.W.T)) 
+        elif visible_unit == 'gaussian':
+            return B.dot(self.W.T)
+
+    def sample_hidden(self, V):
+        return bernoulli(forward(V))
+
+    def sample_visible(self, H):
+        if
 
 
 

@@ -7,7 +7,7 @@ from sklearn.linear_model import Perceptron
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import confusion_matrix
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 import numpy as np
 import random
 import sys
@@ -429,11 +429,15 @@ def AkuaExample():
     NB.load_test_data(range(2,3))
     generalized_error = NB.get_generalized_error()
     print ("Test error: " + str(generalized_error))
+    plot_confusion_matrix(NB.cm)
 
     # Cross domain classification error
     cs_error = NB.get_crossdomain_error()
     print ("Twitter data error: " + str(cs_error['twitter']))
     print ("Ebay data error: " + str(cs_error['ebay']))
+    
+
+
 
 
 def example():

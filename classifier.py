@@ -3,13 +3,15 @@ from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.feature_extraction.text import TfidfTransformer, TfidfVectorizer
 from sklearn.linear_model import SGDClassifier
 from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model import Perceptron
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import confusion_matrix
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 import numpy as np
-import sys
 import random
+import sys
+
 
 # Complete list of Amazon categories (without KindleStore ebooks)
 # Can be useful for reference
@@ -346,6 +348,40 @@ class LogisticClassifier(CrossDomainClassifier):
         return {'twitter': self.__test(self.twitter_items, self.twitter_labels),
                 'ebay': self.__test(self.ebay_items, self.ebay_labels)}
 
+class PerceptronClassifier(CrossDomainClassifier):
+    """
+    Perceptron Classifier with TFIDF
+    """
+
+    def train(self):
+        if not hasattr(self, 'reviews'):
+            print "No data loaded"
+            return
+
+        self.count_vect = CountVectorizer()
+        X_train_counts = self.count_vect.fit_transform(self.reviews)
+        self.tfidf_transformer = TfidfTransformer(use_idf=True).fit(X_train_counts)
+        X_train_tfidf = self.tfidf_transformer.transform(X_train_counts)
+        self.clf = Perceptron(n_iter=30, shuffle=False).fit(X_train_tfidf, self.labels)
+
+    def __test(self, reviews, labels):
+        X_training_counts = self.count_vect.transform(reviews)
+        X_training_tfidf = self.tfidf_transformer.transform(X_training_counts)
+
+        predicted = self.clf.predict(X_training_tfidf)
+        self.cm = confusion_matrix(labels, predicted)
+        return 1 - np.mean(predicted == labels)
+
+    def get_training_error(self):
+        return self.__test(self.reviews, self.labels)
+
+    def get_generalized_error(self):
+        return self.__test(self.test_reviews, self.test_labels)
+
+    def get_crossdomain_error(self):
+        return {'twitter': self.__test(self.twitter_items, self.twitter_labels),
+                'ebay': self.__test(self.ebay_items, self.ebay_labels)}
+
 class kNNClassifier(CrossDomainClassifier):
     """
     K nearest neighbors with Tfidf
@@ -381,6 +417,23 @@ class kNNClassifier(CrossDomainClassifier):
                 'ebay': self.__test(self.ebay_items, self.ebay_labels)}
 
 
+
+def AkuaExample():
+    NB = PerceptronClassifier(range(1,2), 100) # Select which partitions we are going to use
+    NB.load_data() # Actually load the data from the partitions
+    NB.train()
+    train_error = NB.get_training_error()
+    print ("Training error: " + str(train_error))
+
+    # Load some test data and get error
+    NB.load_test_data(range(2,3))
+    generalized_error = NB.get_generalized_error()
+    print ("Test error: " + str(generalized_error))
+
+    # Cross domain classification error
+    cs_error = NB.get_crossdomain_error()
+    print ("Twitter data error: " + str(cs_error['twitter']))
+    print ("Ebay data error: " + str(cs_error['ebay']))
 
 
 def example():

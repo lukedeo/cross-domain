@@ -139,7 +139,16 @@ class CrossDomainClassifier(object):
                     elements_added += 1
                 i += 1
 
-        return (reviews_result, labels_result)
+        # Shuffle again the labels and reviews
+        reviews_shuf = []
+        labels_shuf = []
+        index_shuf = range(len(reviews_result))
+        random.shuffle(index_shuf)
+        for i in index_shuf:
+            reviews_shuf.append(reviews_result[i])
+            labels_shuf.append(labels_result[i])
+
+        return (reviews_shuf, labels_shuf)
 
     def __load_cross_domain_data(self):
         """

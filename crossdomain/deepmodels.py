@@ -71,8 +71,8 @@ class Layer(BaseModel):
 
     def backprop(self, E):
         self.delta = np.multiply(E, derivative[self.activation](self._A))
-        # self.delta_W = np.divide(np.dot(self._Z.transpose(), self.delta), E.shape[0])
-        self.delta_W = np.dot(self._Z.transpose(), self.delta)
+        self.delta_W = np.divide(np.dot(self._Z.transpose(), self.delta), E.shape[0])
+        # self.delta_W = np.dot(self._Z.transpose(), self.delta)
         del self._Z
         del self._A
         self._prev_W = self.momentum * self._prev_W - self.learning_rate * (self.delta_W + self.weight_decay * self.W)
@@ -86,7 +86,7 @@ class Autoencoder(Layer):
     def __init__(self, n_visible, n_hidden, activation = sigmoid, decoder_transform = identity, learning_rate = 0.01, momentum = 0.6, weight_decay = 0.0001):
         super(Autoencoder, self).__init__(n_visible, n_hidden, activation, learning_rate, momentum, weight_decay)
         self.decoder_transform = decoder_transform
-        self.decoder = Layer(n_hidden, n_visible, activation = decoder_transform, learning_rate, momentum, weight_decay)
+        self.decoder = Layer(n_hidden, n_visible, decoder_transform, learning_rate, momentum, weight_decay)
         self.errors = []
 
     def reconstruct(self, X, noise = False):
@@ -104,14 +104,12 @@ class Autoencoder(Layer):
             reconstructed = self.reconstruct(X)
             E = reconstructed - X
 
-            
+            _ = self.backprop(self.decoder.backprop(E))
 
-        reconstructed = self.decoder.forward(self.forward(X))
-
-        E = reconstructed - X
-        if validation is not None:
-            errors.append(np.mean(reconstructed)**2)**0.5)
-
+            if validation is None:
+                self.errors.append((np.mean(E**2)) * 0.5)
+            else:
+                self.errors.append(np.mean((self.reconstruct(validation) - validation) ** 2) * 0.5)
 
         
     

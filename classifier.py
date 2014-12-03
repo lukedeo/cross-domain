@@ -74,9 +74,10 @@ class CrossDomainClassifier(object):
     TWITTER_FILE = 'data/twitter.pkl'
     EBAY_FILE = 'data/ebay.pkl'
 
-    def __init__(self, partitions_to_use, total_num_partitions):
+    def __init__(self, partitions_to_use, total_num_partitions, ngram_range=(1,1)):
         self.partitions_to_use = partitions_to_use
         self.total_num_partitions = total_num_partitions
+        self.ngram_range = ngram_range
 
     @staticmethod
     def load_training_data(partitions_to_use, total_num_partitions):
@@ -241,6 +242,18 @@ class CrossDomainClassifier(object):
         return {'twitter': self.__test(self.twitter_items, self.twitter_labels),
                 'ebay': self.__test(self.ebay_items, self.ebay_labels)}
 
+    def get_bag_of_ngrams(self, texts, ngram_range=None):
+        """ Sets vectorizer feature and returns data from object in featuer form X """
+        if ngram_range is None:
+            ngram_range = self.ngram_range
+        self.count_vect = CountVectorizer(ngram_range=ngram_range)
+        X_train_counts = self.count_vect.fit_transform(texts)
+        self.tfidf_transformer = TfidfTransformer(use_idf=True).fit(X_train_counts)
+        X_train_tfidf = self.tfidf_transformer.transform(X_train_counts)
+
+        return X_train_tfidf
+
+
 class NaiveBayesClassifier(CrossDomainClassifier):
     """
     Naive bayes classifier with tfidf
@@ -251,11 +264,8 @@ class NaiveBayesClassifier(CrossDomainClassifier):
             print "No data loaded"
             return
 
-        self.count_vect = CountVectorizer()
-        X_train_counts = self.count_vect.fit_transform(self.reviews)
-        self.tfidf_transformer = TfidfTransformer(use_idf=True).fit(X_train_counts)
-        X_train_tfidf = self.tfidf_transformer.transform(X_train_counts)
-        self.clf = MultinomialNB().fit(X_train_tfidf, self.labels)
+        X = self.get_bag_of_ngrams(self.reviews)
+        self.clf = MultinomialNB().fit(X, self.labels)
 
     def __test(self, reviews, labels):
         X_training_counts = self.count_vect.transform(reviews)
@@ -276,7 +286,6 @@ class NaiveBayesClassifier(CrossDomainClassifier):
         return {'twitter': self.__test(self.twitter_items, self.twitter_labels),
                 'ebay': self.__test(self.ebay_items, self.ebay_labels)}
 
-
 class SGD(CrossDomainClassifier):
     """
     Stochastic Gradient Descent with Tfidf
@@ -287,11 +296,8 @@ class SGD(CrossDomainClassifier):
             print "No data loaded"
             return
 
-        self.count_vect = CountVectorizer()
-        X_train_counts = self.count_vect.fit_transform(self.reviews)
-        self.tfidf_transformer = TfidfTransformer(use_idf=True).fit(X_train_counts)
-        X_train_tfidf = self.tfidf_transformer.transform(X_train_counts)
-        self.clf = SGDClassifier(loss="hinge", penalty="l2").fit(X_train_tfidf, self.labels)
+        X = self.get_bag_of_ngrams(self.reviews)
+        self.clf = SGDClassifier(loss="hinge", penalty="l2").fit(X, self.labels)
 
     def __test(self, reviews, labels):
         X_training_counts = self.count_vect.transform(reviews)
@@ -322,11 +328,8 @@ class LogisticClassifier(CrossDomainClassifier):
             print "No data loaded"
             return
 
-        self.count_vect = CountVectorizer()
-        X_train_counts = self.count_vect.fit_transform(self.reviews)
-        self.tfidf_transformer = TfidfTransformer(use_idf=True).fit(X_train_counts)
-        X_train_tfidf = self.tfidf_transformer.transform(X_train_counts)
-        self.clf = LogisticRegression(C=1e5).fit(X_train_tfidf, self.labels)
+        X = self.get_bag_of_ngrams(self.reviews)
+        self.clf = LogisticRegression(C=1e5).fit(X, self.labels)
 
     def __test(self, reviews, labels):
         X_training_counts = self.count_vect.transform(reviews)
@@ -356,11 +359,8 @@ class kNNClassifier(CrossDomainClassifier):
             print "No data loaded"
             return
 
-        self.count_vect = CountVectorizer()
-        X_train_counts = self.count_vect.fit_transform(self.reviews)
-        self.tfidf_transformer = TfidfTransformer(use_idf=True).fit(X_train_counts)
-        X_train_tfidf = self.tfidf_transformer.transform(X_train_counts)
-        self.clf = KNeighborsClassifier(n_neighbors=7).fit(X_train_tfidf, self.labels)
+        X = self.get_bag_of_ngrams(self.reviews)
+        self.clf = KNeighborsClassifier(n_neighbors=7).fit(X, self.labels)
 
     def __test(self, reviews, labels):
         X_training_counts = self.count_vect.transform(reviews)

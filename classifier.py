@@ -6,7 +6,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.linear_model import Perceptron
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.neighbors import KNeighborsClassifier
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import confusion_matrix, precision_recall_fscore_support
 import matplotlib.pyplot as plt
 import numpy as np
 import random
@@ -58,6 +58,59 @@ def get_categories_stats(labels, display_info=True):
             print ("%s: %d elements, %f" % (cat, categories_count[cat], categories_count[cat] * 100.0 / total_count))
 
     return categories_count
+
+
+def get_learning_curve(classifier, range=[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]):
+
+    # Balance classes
+    stats = get_categories_stats(classifier.labels, display_info=False)
+    max_value = max(stats.values())
+
+    # Prune to 0.1 * max_class_elements (this also fully randomizes data!)
+    classifier.prune_training_data(max_value / 10)
+
+    data_size = []
+    training_scores = []
+    test_scores = []
+    twitter_scores = []
+    ebay_scores = []
+    num_iter = 0
+    for i in range:
+        num_iter += 1
+        print "Iteration %d of %d" % (num_iter, len(range))
+
+        num_elems = int(len(classifier.reviews) * i)
+        classifier.train(num_elems)
+        _, _, f_score_training, _ = classifier.get_scores_training()
+        _, _, f_score_test, _ = classifier.get_scores_test()
+        _, _, f_score_twitter, _ = classifier.get_scores_twitter()
+        _, _, f_score_ebay, _ = classifier.get_scores_ebay()
+        data_size.append(num_elems)
+        training_scores.append(f_score_training)
+        test_scores.append(f_score_test)
+        twitter_scores.append(f_score_twitter)
+        ebay_scores.append(f_score_ebay)
+
+    plt.figure()
+    plt.title("Learning curve")
+    #if ylim is not None:
+    #    plt.ylim(*ylim)
+    plt.xlabel("Training examples")
+    plt.ylabel("F1 score")
+    plt.grid()
+
+    plt.plot(data_size, training_scores, 'o-', color="r",
+             label="Training score")
+    plt.plot(data_size, test_scores, 'o-', color="g",
+             label="Test score")
+    plt.plot(data_size, twitter_scores, 'o-', color="b",
+             label="Cross-domain: twitter")
+    plt.plot(data_size, ebay_scores, 'o-', color="y",
+             label="Cross-domain: eBay")
+
+    plt.legend(loc="best")
+    plt.show()
+
 
 def plot_confusion_matrix(cm):
     """
@@ -261,13 +314,16 @@ class NaiveBayesClassifier(CrossDomainClassifier):
     Naive bayes classifier with tfidf
     """
 
-    def train(self):
+    def train(self, limit_data=None):
         if not hasattr(self, 'reviews'):
             print "No data loaded"
             return
 
-        X = self.get_bag_of_ngrams(self.reviews)
-        self.clf = MultinomialNB().fit(X, self.labels)
+        if limit_data is None:
+            limit_data = len(self.reviews)
+
+        X = self.get_bag_of_ngrams(self.reviews[:limit_data])
+        self.clf = MultinomialNB().fit(X, self.labels[:limit_data])
 
     def __test(self, reviews, labels):
         X_training_counts = self.count_vect.transform(reviews)
@@ -287,19 +343,41 @@ class NaiveBayesClassifier(CrossDomainClassifier):
     def get_crossdomain_error(self):
         return {'twitter': self.__test(self.twitter_items, self.twitter_labels),
                 'ebay': self.__test(self.ebay_items, self.ebay_labels)}
+
+    def __get_scores(self, reviews, labels):
+        X_training_counts = self.count_vect.transform(reviews)
+        X_training_tfidf = self.tfidf_transformer.transform(X_training_counts)
+
+        predicted = self.clf.predict(X_training_tfidf)
+        return precision_recall_fscore_support(labels, predicted, average='macro')
+
+    def get_scores_training(self):
+        return self.__get_scores(self.reviews, self.labels)
+
+    def get_scores_test(self):
+        return self.__get_scores(self.test_reviews, self.test_labels)
+
+    def get_scores_twitter(self):
+        return self.__get_scores(self.twitter_items, self.twitter_labels)
+
+    def get_scores_ebay(self):
+        return self.__get_scores(self.ebay_items, self.ebay_labels)
+
 
 class SGD(CrossDomainClassifier):
     """
     Stochastic Gradient Descent with Tfidf
     """
-
-    def train(self):
+    def train(self, limit_data=None):
         if not hasattr(self, 'reviews'):
             print "No data loaded"
             return
 
-        X = self.get_bag_of_ngrams(self.reviews)
-        self.clf = SGDClassifier(loss="hinge", penalty="l2").fit(X, self.labels)
+        if limit_data is None:
+            limit_data = len(self.reviews)
+
+        X = self.get_bag_of_ngrams(self.reviews[:limit_data])
+        self.clf = SGDClassifier(loss="hinge", penalty="l2").fit(X, self.labels[:limit_data])
 
     def __test(self, reviews, labels):
         X_training_counts = self.count_vect.transform(reviews)
@@ -319,6 +397,26 @@ class SGD(CrossDomainClassifier):
     def get_crossdomain_error(self):
         return {'twitter': self.__test(self.twitter_items, self.twitter_labels),
                 'ebay': self.__test(self.ebay_items, self.ebay_labels)}
+
+    def __get_scores(self, reviews, labels):
+        X_training_counts = self.count_vect.transform(reviews)
+        X_training_tfidf = self.tfidf_transformer.transform(X_training_counts)
+
+        predicted = self.clf.predict(X_training_tfidf)
+        return precision_recall_fscore_support(labels, predicted, average='macro')
+
+    def get_scores_training(self):
+        return self.__get_scores(self.reviews, self.labels)
+
+    def get_scores_test(self):
+        return self.__get_scores(self.test_reviews, self.test_labels)
+
+    def get_scores_twitter(self):
+        return self.__get_scores(self.twitter_items, self.twitter_labels)
+
+    def get_scores_ebay(self):
+        return self.__get_scores(self.ebay_items, self.ebay_labels)
+
 
 class LogisticClassifier(CrossDomainClassifier):
     """

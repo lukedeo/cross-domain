@@ -6,6 +6,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.linear_model import Perceptron
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.neighbors import KNeighborsClassifier
+from sklearn.tree import DecisionTreeClassifier
 from sklearn.metrics import confusion_matrix, precision_recall_fscore_support
 from sklearn.svm import LinearSVC
 import matplotlib.pyplot as plt
@@ -591,7 +592,7 @@ class PerceptronClassifier(CrossDomainClassifier):
 
 class kNNClassifier(CrossDomainClassifier):
     """
-    K nearest neighbors with Tfidf
+    K nearest neighbors with Tfidf-NOT TO BE USED
     """
 
     def train(self):
@@ -600,7 +601,8 @@ class kNNClassifier(CrossDomainClassifier):
             return
 
         X = self.get_bag_of_ngrams(self.reviews)
-        self.clf = KNeighborsClassifier(n_neighbors=7).fit(X, self.labels)
+        self.clf = KNeighborsClassifier(n_neighbors=3).fit(X, self.labels)
+
 
     def __test(self, reviews, labels):
         X_training_counts = self.count_vect.transform(reviews)
@@ -623,7 +625,7 @@ class kNNClassifier(CrossDomainClassifier):
 
 
 def AkuaExample():
-    NB = PerceptronClassifier(range(1,2), 100) # Select which partitions we are going to use
+    NB = DecisionTreeClassifier(range(1,2), 100) # Select which partitions we are going to use
     NB.load_data() # Actually load the data from the partitions
     NB.train()
     train_error = NB.get_training_error()

@@ -485,7 +485,6 @@ class PerceptronClassifier(CrossDomainClassifier):
                 'ebay': self.__test(self.ebay_items, self.ebay_labels)}
 
 
-
 class kNNClassifier(CrossDomainClassifier):
     """
     K nearest neighbors with Tfidf-NOT TO BE USED

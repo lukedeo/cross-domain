@@ -7,6 +7,7 @@ from sklearn.linear_model import Perceptron
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import confusion_matrix, precision_recall_fscore_support
+from sklearn.svm import LinearSVC
 import matplotlib.pyplot as plt
 import numpy as np
 import random
@@ -96,7 +97,7 @@ def get_learning_curve(classifier, range=[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8
     #if ylim is not None:
     #    plt.ylim(*ylim)
     plt.xlabel("Training examples")
-    plt.ylabel("F1 score")
+    plt.ylabel("F score")
     plt.grid()
 
     plt.plot(data_size, training_scores, 'o-', color="r",
@@ -298,7 +299,7 @@ class CrossDomainClassifier(object):
                 'ebay': self.__test(self.ebay_items, self.ebay_labels)}
 
     def get_bag_of_ngrams(self, texts, ngram_range=None):
-        """ Sets vectorizer feature and returns data from object in featuer form X """
+        """ Sets vectorizer feature and returns data from object in feature form X """
         if ngram_range is None:
             ngram_range = self.ngram_range
         self.count_vect = CountVectorizer(ngram_range=ngram_range)
@@ -349,6 +350,8 @@ class NaiveBayesClassifier(CrossDomainClassifier):
         X_training_tfidf = self.tfidf_transformer.transform(X_training_counts)
 
         predicted = self.clf.predict(X_training_tfidf)
+        self.cm = confusion_matrix(labels, predicted)
+
         return precision_recall_fscore_support(labels, predicted, average='macro')
 
     def get_scores_training(self):
@@ -403,6 +406,8 @@ class SGD(CrossDomainClassifier):
         X_training_tfidf = self.tfidf_transformer.transform(X_training_counts)
 
         predicted = self.clf.predict(X_training_tfidf)
+        self.cm = confusion_matrix(labels, predicted)
+
         return precision_recall_fscore_support(labels, predicted, average='macro')
 
     def get_scores_training(self):
@@ -449,21 +454,99 @@ class LogisticClassifier(CrossDomainClassifier):
         return {'twitter': self.__test(self.twitter_items, self.twitter_labels),
                 'ebay': self.__test(self.ebay_items, self.ebay_labels)}
 
+    def __get_scores(self, reviews, labels):
+        X_training_counts = self.count_vect.transform(reviews)
+        X_training_tfidf = self.tfidf_transformer.transform(X_training_counts)
+
+        predicted = self.clf.predict(X_training_tfidf)
+        self.cm = confusion_matrix(labels, predicted)
+
+        return precision_recall_fscore_support(labels, predicted, average='macro')
+
+    def get_scores_training(self):
+        return self.__get_scores(self.reviews, self.labels)
+
+    def get_scores_test(self):
+        return self.__get_scores(self.test_reviews, self.test_labels)
+
+    def get_scores_twitter(self):
+        return self.__get_scores(self.twitter_items, self.twitter_labels)
+
+    def get_scores_ebay(self):
+        return self.__get_scores(self.ebay_items, self.ebay_labels)
+
+class SVMClassifier(CrossDomainClassifier):
+    """
+    SVM with Tfidf
+    """
+    def train(self, limit_data=None):
+        if not hasattr(self, 'reviews'):
+            print "No data loaded"
+            return
+
+        if limit_data is None:
+            limit_data = len(self.reviews)
+
+        X = self.get_bag_of_ngrams(self.reviews[:limit_data])
+        self.clf = LinearSVC().fit(X, self.labels[:limit_data])
+
+    def __test(self, reviews, labels):
+        X_training_counts = self.count_vect.transform(reviews)
+        X_training_tfidf = self.tfidf_transformer.transform(X_training_counts)
+
+        predicted = self.clf.predict(X_training_tfidf)
+        self.cm = confusion_matrix(labels, predicted)
+
+        return 1 - np.mean(predicted == labels)
+
+    def get_training_error(self):
+        return self.__test(self.reviews, self.labels)
+
+    def get_generalized_error(self):
+        return self.__test(self.test_reviews, self.test_labels)
+
+    def get_crossdomain_error(self):
+        return {'twitter': self.__test(self.twitter_items, self.twitter_labels),
+                'ebay': self.__test(self.ebay_items, self.ebay_labels)}
+
+    def __get_scores(self, reviews, labels):
+        X_training_counts = self.count_vect.transform(reviews)
+        X_training_tfidf = self.tfidf_transformer.transform(X_training_counts)
+
+        predicted = self.clf.predict(X_training_tfidf)
+        self.cm = confusion_matrix(labels, predicted)
+
+        return precision_recall_fscore_support(labels, predicted, average='macro')
+
+    def get_scores_training(self):
+        return self.__get_scores(self.reviews, self.labels)
+
+    def get_scores_test(self):
+        return self.__get_scores(self.test_reviews, self.test_labels)
+
+    def get_scores_twitter(self):
+        return self.__get_scores(self.twitter_items, self.twitter_labels)
+
+    def get_scores_ebay(self):
+        return self.__get_scores(self.ebay_items, self.ebay_labels)
+
+
+
 class PerceptronClassifier(CrossDomainClassifier):
     """
     Perceptron Classifier with TFIDF
     """
 
-    def train(self):
+    def train(self, limit_data=None):
         if not hasattr(self, 'reviews'):
             print "No data loaded"
             return
 
-        self.count_vect = CountVectorizer()
-        X_train_counts = self.count_vect.fit_transform(self.reviews)
-        self.tfidf_transformer = TfidfTransformer(use_idf=True).fit(X_train_counts)
-        X_train_tfidf = self.tfidf_transformer.transform(X_train_counts)
-        self.clf = Perceptron(n_iter=30, shuffle=False).fit(X_train_tfidf, self.labels)
+        if limit_data is None:
+            limit_data = len(self.reviews)
+
+        X = self.get_bag_of_ngrams(self.reviews[:limit_data])
+        self.clf = LinearSVC().fit(X, self.labels[:limit_data])
 
     def __test(self, reviews, labels):
         X_training_counts = self.count_vect.transform(reviews)
@@ -482,6 +565,29 @@ class PerceptronClassifier(CrossDomainClassifier):
     def get_crossdomain_error(self):
         return {'twitter': self.__test(self.twitter_items, self.twitter_labels),
                 'ebay': self.__test(self.ebay_items, self.ebay_labels)}
+
+    def __get_scores(self, reviews, labels):
+        X_training_counts = self.count_vect.transform(reviews)
+        X_training_tfidf = self.tfidf_transformer.transform(X_training_counts)
+
+        predicted = self.clf.predict(X_training_tfidf)
+        self.cm = confusion_matrix(labels, predicted)
+
+        return precision_recall_fscore_support(labels, predicted, average='macro')
+
+    def get_scores_training(self):
+        return self.__get_scores(self.reviews, self.labels)
+
+    def get_scores_test(self):
+        return self.__get_scores(self.test_reviews, self.test_labels)
+
+    def get_scores_twitter(self):
+        return self.__get_scores(self.twitter_items, self.twitter_labels)
+
+    def get_scores_ebay(self):
+        return self.__get_scores(self.ebay_items, self.ebay_labels)
+
+
 
 class kNNClassifier(CrossDomainClassifier):
     """

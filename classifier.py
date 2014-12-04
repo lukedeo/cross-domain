@@ -7,6 +7,7 @@ from sklearn.linear_model import Perceptron
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import confusion_matrix
+from sklearn.tree import DecisionTreeClassifier
 import matplotlib.pyplot as plt
 import numpy as np
 import random
@@ -382,9 +383,11 @@ class PerceptronClassifier(CrossDomainClassifier):
         return {'twitter': self.__test(self.twitter_items, self.twitter_labels),
                 'ebay': self.__test(self.ebay_items, self.ebay_labels)}
 
+
+
 class kNNClassifier(CrossDomainClassifier):
     """
-    K nearest neighbors with Tfidf
+    K nearest neighbors with Tfidf-NOT TO BE USED
     """
 
     def train(self):
@@ -396,7 +399,7 @@ class kNNClassifier(CrossDomainClassifier):
         X_train_counts = self.count_vect.fit_transform(self.reviews)
         self.tfidf_transformer = TfidfTransformer(use_idf=True).fit(X_train_counts)
         X_train_tfidf = self.tfidf_transformer.transform(X_train_counts)
-        self.clf = KNeighborsClassifier(n_neighbors=7).fit(X_train_tfidf, self.labels)
+        self.clf = KNeighborsClassifier(n_neighbors=3).fit(X_train_tfidf, self.labels)
 
     def __test(self, reviews, labels):
         X_training_counts = self.count_vect.transform(reviews)
@@ -419,7 +422,7 @@ class kNNClassifier(CrossDomainClassifier):
 
 
 def AkuaExample():
-    NB = PerceptronClassifier(range(1,2), 100) # Select which partitions we are going to use
+    NB = DecisionTreeClassifier(range(1,2), 100) # Select which partitions we are going to use
     NB.load_data() # Actually load the data from the partitions
     NB.train()
     train_error = NB.get_training_error()

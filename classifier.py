@@ -110,6 +110,7 @@ def get_learning_curve(classifier, range=[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8
     plt.plot(data_size, ebay_scores, 'o-', color="y",
              label="Cross-domain: eBay")
 
+    plt.ylim(0, 1.0)
     plt.legend(loc="best")
     plt.show()
 
@@ -381,7 +382,7 @@ class SGD(CrossDomainClassifier):
             limit_data = len(self.reviews)
 
         X = self.get_bag_of_ngrams(self.reviews[:limit_data])
-        self.clf = SGDClassifier(loss="hinge", penalty="l2").fit(X, self.labels[:limit_data])
+        self.clf = SGDClassifier(loss="modified_huber", alpha=0.001, penalty="l2").fit(X, self.labels[:limit_data])
 
     def __test(self, reviews, labels):
         X_training_counts = self.count_vect.transform(reviews)
@@ -489,7 +490,7 @@ class SVMClassifier(CrossDomainClassifier):
             limit_data = len(self.reviews)
 
         X = self.get_bag_of_ngrams(self.reviews[:limit_data])
-        self.clf = LinearSVC().fit(X, self.labels[:limit_data])
+        self.clf = LinearSVC(C=0.4).fit(X, self.labels[:limit_data])
 
     def __test(self, reviews, labels):
         X_training_counts = self.count_vect.transform(reviews)

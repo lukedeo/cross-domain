@@ -304,7 +304,7 @@ class CrossDomainClassifier(object):
         """ Sets vectorizer feature and returns data from object in feature form X """
         if ngram_range is None:
             ngram_range = self.ngram_range
-        self.count_vect = CountVectorizer(ngram_range=ngram_range)
+        self.count_vect = CountVectorizer(ngram_range=ngram_range, stop_words="english")
         X_train_counts = self.count_vect.fit_transform(texts)
         self.tfidf_transformer = TfidfTransformer(use_idf=True).fit(X_train_counts)
         X_train_tfidf = self.tfidf_transformer.transform(X_train_counts)
@@ -701,7 +701,7 @@ class DeepLearningClassifier(CrossDomainClassifier):
 
 
 def AkuaExample():
-    NB = DecisionTreeClassifier(range(1,2), 100) # Select which partitions we are going to use
+    NB = NaiveBayesClassifier(range(1,2), 100) # Select which partitions we are going to use
     NB.load_data() # Actually load the data from the partitions
     NB.train()
     train_error = NB.get_training_error()

@@ -130,7 +130,8 @@ class Autoencoder(Layer):
                 self.errors.append((np.mean(E**2)) * 0.5)
             else:
                 self.errors.append(np.mean((self.reconstruct(validation) - validation) ** 2) * 0.5)
-
+    def finalize(self):
+        self._W = self.W.copy()
 
 
 
@@ -219,34 +220,107 @@ for L in net:
 
 
 class RBM(BaseModel):
-    """RBM inherited"""
-    def __init__(self, n_visible, n_hidden, visible_unit = 'binary'):
-        super(RBM, self).__init__(n_visible, n_hidden, sigmoid)
+    def __init__(self, n_visible=None, n_hidden=None, W=None, learning_rate = 0.1, weight_decay=0.01,cd_steps=1,momentum=0.5, activation = sigmoid):
+        super(RBM, self).__init__(n_visible, n_hidden, activation)
+        if W == None:
+            self.W =  numpy.random.uniform(-.1,0.1,(n_visible,  n_hidden)) / numpy.sqrt(n_visible + n_hidden)
+            self.W = numpy.insert(self.W, 0, 0, axis = 1)
+            self.W = numpy.insert(self.W, 0, 0, axis = 0)
+        else:
+            self.W=W 
+        self.activation = activation
+        self.learning_rate = learning_rate 
+        self.momentum = momentum
+        self.last_change = 0
+        self.last_update = 0
+        self.cd_steps = cd_steps
+        self.epoch = 0 
+        self.weight_decay = weight_decay  
+        self.errors = []
         self.n_visible = n_visible
         self.n_hidden = n_hidden
-        self.visible_unit = visible_unit
-        self.W = numpy.insert(self.W, 0, 0, axis = 1)
-    def backward(self, H):
-        if isinstance(H, S.csr_matrix):
-            bias = S.csr_matrix(numpy.ones((H.shape[0], 1))) 
-            B = S.hstack([bias, H]).tocsr()
+   
+    def to_layer(self):
+        L = Layer(self.n_visible, self.n_hidden, self.activation, self.learning_rate, self.momentum, self.weight_decay)
+        L.W = self.W[:, 1:]
+        return L
+
+    def fit_pretrain(self, Input, max_epochs = 1, batch_size=100, holdout = None):  
+        if isinstance(Input, S.csr_matrix):
+            bias = S.csr_matrix(numpy.ones((Input.shape[0], 1))) 
+            csr = S.hstack([bias, Input]).tocsr()
         else:
-            B = numpy.insert(H, 0, 1, 1)
-        self._B = B
-        if visible_unit == 'binary':
-            return sigmoid(B.dot(self.W.T)) 
-        elif visible_unit == 'gaussian':
-            return B.dot(self.W.T)
-
-    def sample_hidden(self, V):
-        return bernoulli(forward(V))
-
-    def sample_visible(self, H):
-        if visible_unit == 'binary':
-            return bernoulli(backward(H))
+            csr = numpy.insert(Input, 0, 1, 1)
+        for epoch in range(max_epochs): 
+            idx = np.random.randint(0, csr.shape[0], batch_size)
+            self.V_state = csr[idx] 
+            self.H_state = self.activate(self.V_state)
+            pos_associations = self.V_state.T.dot(self.H_state) 
+  
+            for i in range(self.cd_steps):
+              self.V_state = self.sample(self.H_state)  
+              self.H_state = self.activate(self.V_state)
+              
+            neg_associations = self.V_state.T.dot(self.H_state) 
+            self.V_state = self.sample(self.H_state) 
+            
+            # Update weights. 
+            w_update = self.learning_rate * (((pos_associations - neg_associations) / batch_size) - self.weight_decay * self.W)
+            total_change = numpy.sum(numpy.abs(w_update)) 
+            self.W += self.momentum * self.last_change  + w_update
+            # self.W *= self.weight_decay 
+            
+            self.last_change = w_update
+            if holdout is None:
+                RMSE = numpy.mean((csr[idx] - self.V_state)**2)**0.5
+            else:
+                if isinstance(holdout, S.csr_matrix):
+                    bias = S.csr_matrix(numpy.ones((holdout.shape[0], 1))) 
+                    h_out = S.hstack([bias, holdout]).tocsr()
+                else:
+                    h_out = numpy.insert(holdout, 0, 1, 1)
+                RMSE = numpy.mean((h_out - self.sample(self.activate(h_out)))**2)**0.5
+            self.errors.append(RMSE)
+            self.epoch += 1
+            print "Epoch %s: RMSE = %s; ||W||: %6.1f; Sum Update: %f" % (self.epoch, RMSE, numpy.sum(numpy.abs(self.W)), total_change)  
+        return self 
+        
+    def learning_curve(self):
+        plt.ion()
+        #plt.figure()
+        plt.show()
+        E = numpy.array(self.errors)
+        plt.plot(pandas.rolling_mean(E, 50)[50:])  
+     
+    def activate(self, X):
+        if X.shape[1] != self.W.shape[0]:
+            if isinstance(X, S.csr_matrix):
+                bias = S.csr_matrix(numpy.ones((X.shape[0], 1))) 
+                csr = S.hstack([bias, X]).tocsr()
+            else:
+                csr = numpy.insert(X, 0, 1, 1) 
         else:
+            csr = X
+        p = sigmoid(csr.dot(self.W)) 
+        p[:,0]  = 1.0 
+        return p  
+        
+    def sample(self, H, addBias=True): 
+        if H.shape[1] == self.W.shape[0]:
+            if isinstance(H, S.csr_matrix):
+                bias = S.csr_matrix(numpy.ones((H.shape[0], 1))) 
+                csr = S.hstack([bias, H]).tocsr()
+            else:
+                csr = numpy.insert(H, 0, 1, 1)
+        else:
+            csr = H
+        p = sigmoid(csr.dot(self.W.T)) 
+        p[:,0] = 1
+        return p
 
-
+    # def finalize(self):
+        # self._W = self.W.copy()
+        # self.W = self.W[:, 1:]
 
 
 

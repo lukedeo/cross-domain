@@ -625,6 +625,81 @@ class kNNClassifier(CrossDomainClassifier):
 
 
 
+
+class DeepLearningClassifier(CrossDomainClassifier):
+    """
+    DeepLearning with Tfidf
+    """
+    def get_bag_of_ngrams(self, texts, max_features = None, ngram_range=None):
+        """ Sets vectorizer feature and returns data from object in feature form X """
+        if ngram_range is None:
+            ngram_range = self.ngram_range
+        if max_features is None:
+            self.tfidf_vectorizer =TfidfVectorizer(use_idf=True, ngram_range=ngram_range)
+        else:
+            self.tfidf_vectorizer =TfidfVectorizer(use_idf=True, max_features = max_features, ngram_range=ngram_range)
+        self.tfidf_vectorizer.fit(texts)
+        return self.tfidf_vectorizer.transform(texts)
+
+    def get_training_data(self, limit_data=None, max_features = 500, ngram_range=None):
+        if not hasattr(self, 'reviews'):
+            print "No data loaded"
+            return
+        if limit_data is None:
+            limit_data = len(self.reviews)
+
+        return self.get_bag_of_ngrams(self.reviews[:limit_data], max_features, ngram_range)
+        
+        self.clf = LinearSVC(C=0.4).fit(X, self.labels[:limit_data])
+
+    def __test(self, reviews, labels):
+        X_training_counts = self.count_vect.transform(reviews)
+        X_training_tfidf = self.tfidf_transformer.transform(X_training_counts)
+
+        predicted = self.clf.predict(X_training_tfidf)
+        self.cm = confusion_matrix(labels, predicted)
+
+        return 1 - np.mean(predicted == labels)
+
+    def get_training_error(self):
+        return self.__test(self.reviews, self.labels)
+
+    def get_generalized_error(self):
+        return self.__test(self.test_reviews, self.test_labels)
+
+    def get_crossdomain_error(self):
+        return {'twitter': self.__test(self.twitter_items, self.twitter_labels),
+                'ebay': self.__test(self.ebay_items, self.ebay_labels)}
+
+    def __get_scores(self, reviews, labels):
+        X_training_counts = self.count_vect.transform(reviews)
+        X_training_tfidf = self.tfidf_transformer.transform(X_training_counts)
+
+        predicted = self.clf.predict(X_training_tfidf)
+        self.cm = confusion_matrix(labels, predicted)
+
+        return precision_recall_fscore_support(labels, predicted, average='macro')
+
+    def get_scores_training(self):
+        return self.__get_scores(self.reviews, self.labels)
+
+    def get_scores_test(self):
+        return self.__get_scores(self.test_reviews, self.test_labels)
+
+    def get_scores_twitter(self):
+        return self.__get_scores(self.twitter_items, self.twitter_labels)
+
+    def get_scores_ebay(self):
+        return self.__get_scores(self.ebay_items, self.ebay_labels)
+
+
+
+
+
+
+
+
+
 def AkuaExample():
     NB = DecisionTreeClassifier(range(1,2), 100) # Select which partitions we are going to use
     NB.load_data() # Actually load the data from the partitions
